@@ -1,0 +1,39 @@
+# ==============================================================================
+# claude8code - Standalone Testing Environment
+# ==============================================================================
+# Run the Anthropic-compatible API server for local testing
+#
+# Usage:
+#   docker compose up -d      # Start server
+#   docker compose logs -f    # View logs
+#   curl http://localhost:8787/health  # Test health endpoint
+# ==============================================================================
+
+services:
+  claude8code:
+    build: .
+    container_name: claude8code
+    ports:
+      - "8787:8787"
+    volumes:
+      # Mount Claude credentials from host
+      - ~/.claude:/home/claude8code/.claude:ro
+      # Mount workspace for file operations
+      - ./workspace:/home/claude8code/workspace
+    environment:
+      - CLAUDE8CODE_HOST=0.0.0.0
+      - CLAUDE8CODE_PORT=8787
+      - CLAUDE8CODE_CWD=/home/claude8code/workspace
+      - CLAUDE8CODE_MAX_TURNS=10
+      - CLAUDE8CODE_PERMISSION_MODE=acceptEdits
+      # Optional: OAuth token (alternative to mounted credentials)
+      # - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      # Optional: API key authentication
+      # - CLAUDE8CODE_AUTH_KEY=${CLAUDE8CODE_AUTH_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
