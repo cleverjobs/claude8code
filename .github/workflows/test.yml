@@ -59,17 +59,7 @@ jobs:
         env:
           USE_CLAUDE_MOCK: 'true'
         run: |
-          pytest tests/ -v --cov=claude8code --cov-report=xml --cov-report=term-missing
-
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
-          flags: unittests
-          name: codecov-claude8code
-          fail_ci_if_error: false
+          pytest tests/ -v --cov=claude8code --cov-report=term-missing
 
   integration:
     name: Integration Tests

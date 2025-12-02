@@ -2,7 +2,6 @@
 
 [![Tests](https://github.com/krisjobs/claude8code/actions/workflows/test.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/test.yml)
 [![Docker](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml)
-[![codecov](https://codecov.io/gh/krisjobs/claude8code/branch/main/graph/badge.svg)](https://codecov.io/gh/krisjobs/claude8code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker Hub](https://img.shields.io/docker/v/krisjobs/claude8code?label=docker)](https://hub.docker.com/r/krisjobs/claude8code)
