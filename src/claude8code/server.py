@@ -20,6 +20,16 @@ from sse_starlette.sse import EventSourceResponse
 
 from .config import settings
 from .security import verify_api_key
+from .metrics import (
+    init_app_info,
+    get_metrics,
+    get_metrics_content_type,
+    REQUESTS_TOTAL,
+    REQUEST_DURATION,
+    REQUESTS_IN_PROGRESS,
+    ERRORS_TOTAL,
+    record_token_usage,
+)
 from .models import (
     MessagesRequest,
     MessagesResponse,
@@ -46,10 +56,14 @@ logger = logging.getLogger("claude8code")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
+    # Initialize metrics
+    init_app_info(version="0.1.0")
+
     logger.info(f"claude8code starting on {settings.host}:{settings.port}")
     logger.info(f"   Default model: {settings.default_model}")
     logger.info(f"   System prompt mode: {settings.system_prompt_mode}")
     logger.info(f"   Permission mode: {settings.permission_mode}")
+    logger.info(f"   Metrics endpoint: /metrics")
     if settings.auth_key:
         logger.info("   Authentication: ENABLED (API key required)")
     else:
@@ -58,7 +72,7 @@ async def lifespan(app: FastAPI):
     # Cleanup
     logger.info("Shutting down, closing sessions...")
     await session_manager.close_all()
-    logger.info("👋 claude8code stopped")
+    logger.info("claude8code stopped")
 
 
 # Create FastAPI app
@@ -103,6 +117,16 @@ async def root():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    from fastapi.responses import Response
+    return Response(
+        content=get_metrics(),
+        media_type=get_metrics_content_type(),
+    )
 
 
 # ============================================================================

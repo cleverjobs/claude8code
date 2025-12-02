@@ -1,0 +1,86 @@
+# ==============================================================================
+# claude8code - Observability Stack
+# ==============================================================================
+# Prometheus + Grafana monitoring for claude8code
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# Access:
+#   - Prometheus: http://localhost:9090
+#   - Grafana: http://localhost:3000 (admin/admin)
+#   - Metrics: http://localhost:8787/metrics
+# ==============================================================================
+
+services:
+  # Include the main claude8code service
+  claude8code:
+    build: .
+    container_name: claude8code
+    ports:
+      - "8787:8787"
+    volumes:
+      - ~/.claude:/home/claude8code/.claude:ro
+      - ./workspace:/home/claude8code/workspace
+    environment:
+      - CLAUDE8CODE_HOST=0.0.0.0
+      - CLAUDE8CODE_PORT=8787
+      - CLAUDE8CODE_CWD=/home/claude8code/workspace
+      - CLAUDE8CODE_MAX_TURNS=10
+      - CLAUDE8CODE_PERMISSION_MODE=acceptEdits
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - claude8code-network
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: claude8code-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    depends_on:
+      - claude8code
+    networks:
+      - claude8code-network
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: claude8code-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - claude8code-network
+
+networks:
+  claude8code-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:

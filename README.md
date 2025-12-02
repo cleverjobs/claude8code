@@ -1,5 +1,12 @@
 # claude8code
 
+[![Tests](https://github.com/krisjobs/claude8code/actions/workflows/test.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/test.yml)
+[![Docker](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml)
+[![codecov](https://codecov.io/gh/krisjobs/claude8code/branch/main/graph/badge.svg)](https://codecov.io/gh/krisjobs/claude8code)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Docker Hub](https://img.shields.io/docker/v/krisjobs/claude8code?label=docker)](https://hub.docker.com/r/krisjobs/claude8code)
+
 **Anthropic-compatible API server powered by Claude Agent SDK** - Use your Claude Max/Pro subscription with n8n's native Anthropic node.
 
 Unlike other proxy solutions that simply forward API calls, claude8code uses the **Claude Agent SDK** directly, giving you access to all Claude Code features:
@@ -44,7 +51,7 @@ claude /login
 pip install claude8code
 
 # From source
-git clone https://github.com/yourusername/claude8code.git
+git clone https://github.com/krisjobs/claude8code.git
 cd claude8code
 pip install -e .
 ```
@@ -205,26 +212,61 @@ print(message.content[0].text)
                                           └─────────────────┘
 ```
 
+## Observability
+
+claude8code includes built-in Prometheus metrics for monitoring.
+
+### Metrics Endpoint
+
+Access metrics at `http://localhost:8787/metrics`
+
+Available metrics:
+- `claude8code_requests_total` - Total requests by endpoint and status
+- `claude8code_request_duration_seconds` - Request latency histogram
+- `claude8code_errors_total` - Error count by type
+- `claude8code_active_sessions` - Current active sessions
+- `claude8code_tokens_total` - Token usage (input/output)
+
+### Prometheus + Grafana Stack
+
+Start the full observability stack:
+
+```bash
+make up-monitoring
+```
+
+This starts:
+- **claude8code**: http://localhost:8787
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3000 (admin/admin)
+
+A pre-configured dashboard is included for monitoring requests, latency, and token usage.
+
 ## Development
 
 ```bash
 # Clone and install dev dependencies
-git clone https://github.com/yourusername/claude8code.git
+git clone https://github.com/krisjobs/claude8code.git
 cd claude8code
-pip install -e ".[dev]"
+make install
 
 # Run with auto-reload
-claude8code --reload --debug
+make run
 
 # Run tests
-pytest
+make test
 
-# Lint
-ruff check src/
+# Run tests with coverage
+make coverage
 
-# Type check
-mypy src/
+# Lint and type check
+make lint
+
+# Format code
+make format
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
 
 ## Troubleshooting
 
@@ -257,9 +299,20 @@ Check that claude8code is running and accessible:
 curl http://localhost:8787/health
 ```
 
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+Before submitting a PR:
+1. Run `make lint` to check code quality
+2. Run `make test` to verify all tests pass
+3. Update documentation if needed
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
