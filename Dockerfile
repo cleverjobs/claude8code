@@ -10,7 +10,7 @@
 # ==============================================================================
 # Stage 1: Build dependencies
 # ==============================================================================
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /build
 
@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir --upgrade pip wheel \
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Install Node.js (required for Claude Code CLI) and runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
