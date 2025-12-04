@@ -1,0 +1,46 @@
+# Claude8Code Configuration
+# ===========================
+# Non-secret settings go here. This file is committed to git.
+# Secrets (API keys, tokens) go in .env, NOT here!
+
+[server]
+host = "0.0.0.0"
+port = 8787
+debug = false
+workers = 1
+log_level = "info"
+
+[claude]
+default_model = "claude-sonnet-4-5-20250514"
+max_turns = 10
+permission_mode = "acceptEdits"
+# cwd = "/path/to/workspace"  # Uncomment to set working directory
+
+# SDK message handling: forward | formatted | ignore
+sdk_message_mode = "forward"
+
+# Setting sources for Claude Agent SDK
+setting_sources = ["user", "project"]
+
+[claude.system_prompt]
+mode = "claude_code"  # claude_code | custom
+# custom_prompt = "Your custom system prompt here"
+
+[claude.tools]
+# Leave empty for all tools, or specify allowed tools
+allowed = []
+# allowed = ["Read", "Write", "Bash", "Glob", "Grep"]
+
+[security]
+cors_origins = ["*"]
+
+[session]
+max_sessions = 100
+ttl_seconds = 3600
+cleanup_interval_seconds = 60
+clear_on_release = true  # Always clear context between requests (safety)
+
+[observability]
+metrics_enabled = true
+access_logs_enabled = true
+access_logs_path = "data/access_logs.duckdb"

@@ -42,7 +42,12 @@ from .bridge import (
     process_request,
     process_request_streaming,
     session_manager,
+    init_pool,
+    shutdown_pool,
+    get_pool,
 )
+from .middleware import RequestContextMiddleware
+from .access_log import init_access_log, shutdown_access_log, get_access_log_writer
 
 
 # Configure logging
@@ -59,10 +64,24 @@ async def lifespan(app: FastAPI):
     # Initialize metrics
     init_app_info(version="0.1.0")
 
+    # Initialize session pool
+    pool = await init_pool()
+
+    # Initialize access log (DuckDB)
+    access_log = None
+    if settings.observability.access_logs_enabled:
+        access_log = await init_access_log()
+        if access_log:
+            logger.info(f"   Access logs: {settings.observability.access_logs_path}")
+        else:
+            logger.info("   Access logs: DISABLED (DuckDB not installed)")
+
     logger.info(f"claude8code starting on {settings.host}:{settings.port}")
     logger.info(f"   Default model: {settings.default_model}")
     logger.info(f"   System prompt mode: {settings.system_prompt_mode}")
     logger.info(f"   Permission mode: {settings.permission_mode}")
+    logger.info(f"   SDK message mode: {settings.sdk_message_mode.value}")
+    logger.info(f"   Session pool: max={pool._max_sessions}, ttl={pool._ttl_seconds}s")
     logger.info(f"   Metrics endpoint: /metrics")
     if settings.auth_key:
         logger.info("   Authentication: ENABLED (API key required)")
@@ -71,6 +90,8 @@ async def lifespan(app: FastAPI):
     yield
     # Cleanup
     logger.info("Shutting down, closing sessions...")
+    await shutdown_access_log()
+    await shutdown_pool()
     await session_manager.close_all()
     logger.info("claude8code stopped")
 
@@ -91,6 +112,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add request context middleware
+app.add_middleware(RequestContextMiddleware)
 
 
 # ============================================================================
@@ -252,10 +276,42 @@ async def get_config():
         "max_turns": settings.max_turns,
         "permission_mode": settings.permission_mode,
         "system_prompt_mode": settings.system_prompt_mode,
+        "sdk_message_mode": settings.sdk_message_mode.value,
         "cwd": settings.cwd,
         "allowed_tools": settings.get_allowed_tools_list(),
         "setting_sources": settings.get_setting_sources_list(),
     }
+
+
+@app.get("/v1/pool/stats", dependencies=[Depends(verify_api_key)])
+async def get_pool_stats():
+    """Get session pool statistics.
+
+    Returns information about the session pool including:
+    - Configuration (max sessions, TTL)
+    - Current usage (total, active, available sessions)
+    - Individual session details
+    """
+    pool = get_pool()
+    return await pool.get_stats()
+
+
+@app.get("/v1/logs/stats", dependencies=[Depends(verify_api_key)])
+async def get_access_log_stats():
+    """Get access log statistics.
+
+    Returns information about the DuckDB access logs including:
+    - Total requests logged
+    - Date range of logs
+    - Top models by usage
+    - Queue size (pending writes)
+
+    Returns {"available": false} if DuckDB is not installed.
+    """
+    writer = get_access_log_writer()
+    if not writer:
+        return {"available": False, "reason": "DuckDB not installed or logging disabled"}
+    return writer.get_stats()
 
 
 # ============================================================================

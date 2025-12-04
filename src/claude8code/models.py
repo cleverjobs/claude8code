@@ -13,6 +13,23 @@ from datetime import datetime
 
 
 # ============================================================================
+# SDK Message Mode
+# ============================================================================
+
+class SDKMessageMode(str, Enum):
+    """How to handle Claude SDK internal messages in responses.
+
+    - FORWARD: Pass through raw SDK messages (tool_use, tool_result blocks)
+    - FORMATTED: Convert tool blocks to XML-tagged text format
+    - IGNORE: Strip SDK internal messages, only return final text
+    """
+
+    FORWARD = "forward"
+    FORMATTED = "formatted"
+    IGNORE = "ignore"
+
+
+# ============================================================================
 # Request Models (what n8n sends to us)
 # ============================================================================
 

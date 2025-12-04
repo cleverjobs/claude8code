@@ -2,24 +2,67 @@
 
 This module provides instrumentation for monitoring the server's
 performance and usage through Prometheus-compatible metrics.
+
+Uses graceful degradation: server works even without prometheus_client installed.
 """
 
 from __future__ import annotations
 
 import time
 from functools import wraps
-from typing import Callable, Any
+from typing import Callable, Any, TYPE_CHECKING
 
-from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
-    Info,
-    generate_latest,
-    CONTENT_TYPE_LATEST,
-    REGISTRY,
-    CollectorRegistry,
-)
+# Graceful degradation: provide no-op implementations if prometheus_client unavailable
+try:
+    from prometheus_client import (
+        Counter,
+        Histogram,
+        Gauge,
+        Info,
+        generate_latest,
+        CONTENT_TYPE_LATEST,
+        REGISTRY,
+    )
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+
+    # No-op implementations for when prometheus_client is not installed
+    class _NoOpMetric:
+        """No-op metric that accepts any arguments and does nothing."""
+
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def labels(self, **kwargs: Any) -> "_NoOpMetric":
+            return self
+
+        def inc(self, value: float = 1) -> None:
+            pass
+
+        def dec(self, value: float = 1) -> None:
+            pass
+
+        def set(self, value: float) -> None:
+            pass
+
+        def observe(self, value: float) -> None:
+            pass
+
+        def info(self, val: dict[str, str]) -> None:
+            pass
+
+    # Type aliases for graceful degradation
+    Counter = _NoOpMetric  # type: ignore[misc,assignment]
+    Histogram = _NoOpMetric  # type: ignore[misc,assignment]
+    Gauge = _NoOpMetric  # type: ignore[misc,assignment]
+    Info = _NoOpMetric  # type: ignore[misc,assignment]
+    REGISTRY = None  # type: ignore[assignment]
+    CONTENT_TYPE_LATEST = "text/plain; charset=utf-8"
+
+    def generate_latest(registry: Any = None) -> bytes:
+        """No-op metrics generation."""
+        return b"# Prometheus client not installed. Install with: pip install 'claude8code[metrics]'\n"
 
 
 # Application info
@@ -81,23 +124,36 @@ TOKEN_USAGE = Counter(
     ["type"]  # "input" or "output"
 )
 
+# Stream metrics
+STREAM_BYTES_TOTAL = Counter(
+    "claude8code_stream_bytes_total",
+    "Total bytes sent in streaming responses"
+)
+
+STREAM_DURATION = Histogram(
+    "claude8code_stream_duration_seconds",
+    "Duration of streaming responses in seconds",
+    buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float("inf"))
+)
+
 
 def init_app_info(version: str = "0.1.0") -> None:
     """Initialize application info metric."""
     APP_INFO.info({
         "version": version,
         "name": "claude8code",
+        "prometheus_available": str(PROMETHEUS_AVAILABLE).lower(),
     })
 
 
-def track_request(method: str, endpoint: str):
+def track_request(method: str, endpoint: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to track request metrics.
 
     Args:
         method: HTTP method (GET, POST, etc.)
         endpoint: API endpoint path
     """
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
             REQUESTS_IN_PROGRESS.labels(method=method, endpoint=endpoint).inc()
@@ -151,6 +207,17 @@ def record_token_usage(input_tokens: int, output_tokens: int) -> None:
     TOKEN_USAGE.labels(type="output").inc(output_tokens)
 
 
+def record_stream_completion(bytes_sent: int, duration: float) -> None:
+    """Record metrics for a completed stream.
+
+    Args:
+        bytes_sent: Total bytes sent
+        duration: Duration of the stream in seconds
+    """
+    STREAM_BYTES_TOTAL.inc(bytes_sent)
+    STREAM_DURATION.observe(duration)
+
+
 def update_active_sessions(count: int) -> None:
     """Update the active sessions gauge.
 
@@ -176,3 +243,12 @@ def get_metrics_content_type() -> str:
         Content type string
     """
     return CONTENT_TYPE_LATEST
+
+
+def is_prometheus_available() -> bool:
+    """Check if Prometheus client is available.
+
+    Returns:
+        True if prometheus_client is installed
+    """
+    return PROMETHEUS_AVAILABLE

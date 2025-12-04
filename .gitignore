@@ -55,3 +55,14 @@ Thumbs.db
 *.pem
 *.key
 credentials.json
+
+# Data files (access logs, etc.)
+data/*.duckdb
+data/*.duckdb.wal
+!data/.gitkeep
+
+.agents
+.claude
+.mcp.json
+CLAUDE.md
+# Claude Code
