@@ -93,7 +93,54 @@ docker run -e ANTHROPIC_BASE_URL=http://localhost:8787 n8nio/n8n
 1. Add **Anthropic Chat Model** node to your workflow
 2. Create credentials with any API key (e.g., `sk-dummy`)
 3. Select your model (claude-sonnet-4-5, claude-opus-4, etc.)
-4. It just works! ✨
+4. It just works!
+
+## Using with Claude Agent SDK
+
+claude8code can also be used as a local endpoint for the **Python Claude Agent SDK**.
+
+### Setup
+
+```bash
+# Start claude8code
+python -m claude8code
+
+# Configure Agent SDK environment
+export ANTHROPIC_BASE_URL="http://localhost:8787/sdk"
+export ANTHROPIC_API_KEY="dummy-key"  # Required by SDK, ignored by claude8code
+```
+
+### Python Example
+
+```python
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions
+
+async def main():
+    options = ClaudeAgentOptions(
+        system_prompt="You are a helpful coding assistant.",
+        max_turns=5,
+        allowed_tools=["Read", "Write", "Bash"]
+    )
+
+    async for message in query(prompt="List files in current directory", options=options):
+        if hasattr(message, 'content'):
+            print(message.content)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### URL Patterns
+
+Both URL patterns are supported:
+
+| Base URL | Use Case |
+|----------|----------|
+| `http://localhost:8787` | Direct Anthropic compatibility |
+| `http://localhost:8787/sdk` | ccproxy-style SDK prefix |
+
+See [docs/agent-sdk-usage.md](docs/agent-sdk-usage.md) for detailed documentation.
 
 ## Configuration
 
@@ -168,10 +215,11 @@ CLAUDE8CODE_AUTH_KEY=secret
 
 ### Anthropic-Compatible (for n8n)
 
-| Endpoint | Description |
-|----------|-------------|
-| `POST /v1/messages` | Create message (streaming & non-streaming) |
-| `GET /v1/models` | List available models |
+| Endpoint | SDK Prefix Equivalent | Description |
+|----------|----------------------|-------------|
+| `POST /v1/messages` | `POST /sdk/v1/messages` | Create message (streaming & non-streaming) |
+| `GET /v1/models` | `GET /sdk/v1/models` | List available models |
+| `GET /health` | `GET /sdk/health` | Health check |
 
 ### Extended API
 

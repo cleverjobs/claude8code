@@ -9,7 +9,7 @@ When CLAUDE8CODE_AUTH_KEY is not set (empty/None), authentication is disabled.
 
 from fastapi import Header, HTTPException, status
 
-from .config import settings
+from ..core import settings
 
 
 async def verify_api_key(

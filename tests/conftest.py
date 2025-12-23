@@ -3,6 +3,7 @@
 import os
 from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
+from dataclasses import dataclass
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,10 @@ from fastapi.testclient import TestClient
 
 # Check if we should use mocked Claude API
 USE_CLAUDE_MOCK = os.environ.get("USE_CLAUDE_MOCK", "true").lower() == "true"
+
+
+# Import SDK types for proper isinstance() checks in mocks
+from claude_agent_sdk import AssistantMessage, ResultMessage, TextBlock
 
 
 @pytest.fixture
@@ -91,38 +96,35 @@ def mock_claude_query(mock_assistant_message, mock_result_message):
 @pytest.fixture
 def client():
     """Create a FastAPI test client with mocked Claude API."""
+    from src.api.app import app
+
     if USE_CLAUDE_MOCK:
-        # Mock the entire claude_agent_sdk module
-        mock_sdk = MagicMock()
+        # Create mock message types using spec= for proper isinstance() checks
+        mock_text_block = MagicMock(spec=TextBlock)
+        mock_text_block.text = "Hello! I'm Claude."
 
-        # Create mock message types
-        mock_assistant = MagicMock()
-        mock_assistant.content = [MagicMock(text="Hello! I'm Claude.")]
+        mock_assistant = MagicMock(spec=AssistantMessage)
+        mock_assistant.content = [mock_text_block]
 
-        mock_result = MagicMock()
-        mock_result.usage = MagicMock(input_tokens=10, output_tokens=15)
+        mock_usage = MagicMock()
+        mock_usage.input_tokens = 10
+        mock_usage.output_tokens = 15
+
+        mock_result = MagicMock(spec=ResultMessage)
+        mock_result.usage = mock_usage
 
         async def mock_query(*args, **kwargs):
             yield mock_assistant
             yield mock_result
 
-        mock_sdk.query = mock_query
-        mock_sdk.ClaudeAgentOptions = MagicMock
-        mock_sdk.ClaudeSDKClient = MagicMock()
-        mock_sdk.AssistantMessage = type(mock_assistant)
-        mock_sdk.ResultMessage = type(mock_result)
-        mock_sdk.TextBlock = MagicMock
-        mock_sdk.ToolUseBlock = MagicMock
-        mock_sdk.ToolResultBlock = MagicMock
-        mock_sdk.UserMessage = MagicMock
-
-        with patch.dict("sys.modules", {"claude_agent_sdk": mock_sdk}):
-            # Import after patching
-            from claude8code.server import app
-            return TestClient(app)
+        # Patch the query function where it's used (in bridge module)
+        # Use start/stop to keep patch active during test
+        patcher = patch("src.sdk.bridge.query", mock_query)
+        patcher.start()
+        yield TestClient(app)
+        patcher.stop()
     else:
-        from claude8code.server import app
-        return TestClient(app)
+        yield TestClient(app)
 
 
 @pytest.fixture

@@ -29,12 +29,21 @@ from claude_agent_sdk import (
     ResultMessage,
 )
 
-from .config import settings
-from .models import (
+# Try to import ThinkingBlock - may not be available in all SDK versions
+try:
+    from claude_agent_sdk import ThinkingBlock as SdkThinkingBlock
+    HAS_THINKING_BLOCK = True
+except ImportError:
+    SdkThinkingBlock = None
+    HAS_THINKING_BLOCK = False
+
+from ..core import settings
+from ..models import (
     MessagesRequest,
     MessagesResponse,
     Usage,
     TextBlock as ResponseTextBlock,
+    ThinkingBlock as ResponseThinkingBlock,
     ToolUseResponseBlock,
     ResponseContentBlock,
     StreamEvent,
@@ -45,6 +54,7 @@ from .models import (
     MessageDeltaEvent,
     MessageStopEvent,
     ContentBlockDeltaText,
+    ContentBlockDeltaThinking,
     MessageDelta,
     MessageDeltaUsage,
     SDKMessageMode,
@@ -175,15 +185,15 @@ def generate_message_id() -> str:
 
 def build_prompt_from_messages(request: MessagesRequest) -> str:
     """Convert Anthropic messages array to a single prompt for Claude Agent SDK.
-    
+
     The Claude Agent SDK's query() function takes a single prompt string,
     so we need to format the conversation history appropriately.
     """
     parts = []
-    
+
     for msg in request.messages:
         role_prefix = "Human:" if msg.role == "user" else "Assistant:"
-        
+
         if isinstance(msg.content, str):
             parts.append(f"{role_prefix} {msg.content}")
         else:
@@ -196,20 +206,20 @@ def build_prompt_from_messages(request: MessagesRequest) -> str:
                     text_parts.append(f"[Tool Result: {block.content}]")
             if text_parts:
                 parts.append(f"{role_prefix} {' '.join(text_parts)}")
-    
+
     return "\n\n".join(parts)
 
 
 def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
     """Build ClaudeAgentOptions from the request and server settings."""
-    
+
     # Determine system prompt
     system_prompt: str | dict[str, str] | None = None
     if settings.system_prompt_mode == "claude_code":
         system_prompt = {"type": "preset", "preset": "claude_code"}
     elif settings.custom_system_prompt:
         system_prompt = settings.custom_system_prompt
-    
+
     # Override with request system prompt if provided
     if request.system:
         if isinstance(request.system, str):
@@ -217,30 +227,30 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
         elif isinstance(request.system, list):
             # Concatenate system prompt blocks
             system_prompt = " ".join(
-                block.get("text", "") for block in request.system 
+                block.get("text", "") for block in request.system
                 if block.get("type") == "text"
             )
-    
+
     # Build options
     options = ClaudeAgentOptions(
         model=MODEL_MAP.get(request.model, request.model),
         max_turns=settings.max_turns,
         permission_mode=settings.permission_mode,
     )
-    
+
     # Set system prompt
     if system_prompt:
         options.system_prompt = system_prompt
-    
+
     # Set working directory
     if settings.cwd:
         options.cwd = Path(settings.cwd)
-    
+
     # Set allowed tools
     allowed = settings.get_allowed_tools_list()
     if allowed:
         options.allowed_tools = allowed
-    
+
     # Set setting sources
     sources = settings.get_setting_sources_list()
     if sources:
@@ -277,15 +287,24 @@ async def process_request(
 
     # Collect all response content
     content_blocks: list[ResponseContentBlock] = []
+    thinking_blocks: list[ResponseThinkingBlock] = []
     full_text = ""
     input_tokens = 0
     output_tokens = 0
+    cache_creation_input_tokens = None
+    cache_read_input_tokens = None
 
     async for message in query(prompt=prompt, options=options):
         if isinstance(message, AssistantMessage):
             for block in message.content:
                 if isinstance(block, TextBlock):
                     full_text += block.text
+                elif HAS_THINKING_BLOCK and SdkThinkingBlock and isinstance(block, SdkThinkingBlock):
+                    # Extract thinking block from extended thinking response
+                    thinking_blocks.append(ResponseThinkingBlock(
+                        thinking=block.thinking,
+                        signature=getattr(block, "signature", None),
+                    ))
                 elif isinstance(block, SdkToolUseBlock):
                     content_blocks.append(ToolUseResponseBlock(
                         id=block.id,
@@ -293,32 +312,58 @@ async def process_request(
                         input=block.input,
                     ))
         elif isinstance(message, ResultMessage):
-            # Extract usage from result if available
-            if hasattr(message, "usage"):
-                input_tokens = getattr(message.usage, "input_tokens", 0)
-                output_tokens = getattr(message.usage, "output_tokens", 0)
+            # Extract usage from result - prefer actual values over estimates
+            if hasattr(message, "usage") and message.usage:
+                usage = message.usage
+                # Try to get actual token counts from various possible attributes
+                if isinstance(usage, dict):
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    cache_creation_input_tokens = usage.get("cache_creation_input_tokens")
+                    cache_read_input_tokens = usage.get("cache_read_input_tokens")
+                else:
+                    input_tokens = getattr(usage, "input_tokens", 0)
+                    output_tokens = getattr(usage, "output_tokens", 0)
+                    cache_creation_input_tokens = getattr(usage, "cache_creation_input_tokens", None)
+                    cache_read_input_tokens = getattr(usage, "cache_read_input_tokens", None)
+
+    # Build final content blocks - thinking blocks first, then text, then tools
+    final_blocks: list[ResponseContentBlock] = []
+
+    # Add thinking blocks first (if any)
+    final_blocks.extend(thinking_blocks)
 
     # Add collected text as a single block
     if full_text:
-        content_blocks.insert(0, ResponseTextBlock(text=full_text))
+        final_blocks.append(ResponseTextBlock(text=full_text))
 
-    # Apply SDK message mode
-    content_blocks = apply_message_mode(content_blocks, mode)
+    # Add tool use blocks
+    final_blocks.extend(content_blocks)
 
-    # Estimate tokens if not provided
-    if input_tokens == 0:
-        input_tokens = len(prompt) // 4  # Rough estimate
-    if output_tokens == 0:
+    # Apply SDK message mode (only affects text and tool blocks, not thinking)
+    final_blocks = apply_message_mode(final_blocks, mode)
+
+    # Only estimate tokens if SDK provided no usage data at all
+    # This is a fallback for older SDK versions
+    if input_tokens == 0 and output_tokens == 0:
+        import logging
+        logging.getLogger("claude8code").warning(
+            "No token usage from SDK - using estimates. "
+            "Token counts may be inaccurate."
+        )
+        input_tokens = len(prompt) // 4
         output_tokens = len(full_text) // 4
 
     return MessagesResponse(
         id=generate_message_id(),
-        content=content_blocks,
+        content=final_blocks,
         model=request.model,
         stop_reason="end_turn",
         usage=Usage(
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            cache_creation_input_tokens=cache_creation_input_tokens,
+            cache_read_input_tokens=cache_read_input_tokens,
         ),
     )
 
@@ -358,11 +403,44 @@ async def process_request_streaming(
     current_text = ""
     output_tokens = 0
     text_block_started = False
+    thinking_block_started = False
 
     async for message in query(prompt=prompt, options=options):
         if isinstance(message, AssistantMessage):
             for block in message.content:
-                if isinstance(block, TextBlock):
+                # Handle thinking blocks (extended thinking)
+                if HAS_THINKING_BLOCK and SdkThinkingBlock and isinstance(block, SdkThinkingBlock):
+                    # Close any open text block first
+                    if text_block_started:
+                        yield ContentBlockStopEvent(index=content_index)
+                        content_index += 1
+                        current_text = ""
+                        text_block_started = False
+
+                    # Start thinking block
+                    yield ContentBlockStartEvent(
+                        index=content_index,
+                        content_block=ResponseThinkingBlock(
+                            thinking="",
+                            signature=getattr(block, "signature", None),
+                        ),
+                    )
+                    thinking_block_started = True
+
+                    # Stream thinking content
+                    if block.thinking:
+                        yield ContentBlockDeltaEvent(
+                            index=content_index,
+                            delta=ContentBlockDeltaThinking(thinking=block.thinking),
+                        )
+                        output_tokens += len(block.thinking) // 4
+
+                    # Close thinking block
+                    yield ContentBlockStopEvent(index=content_index)
+                    content_index += 1
+                    thinking_block_started = False
+
+                elif isinstance(block, TextBlock):
                     # Start new text block if not started
                     if not text_block_started:
                         yield ContentBlockStartEvent(
@@ -428,6 +506,17 @@ async def process_request_streaming(
                         )
                         yield ContentBlockStopEvent(index=content_index)
                         content_index += 1
+
+        elif isinstance(message, ResultMessage):
+            # Extract actual token counts from SDK result
+            if hasattr(message, "usage") and message.usage:
+                usage = message.usage
+                if isinstance(usage, dict):
+                    actual_output = usage.get("output_tokens", 0)
+                else:
+                    actual_output = getattr(usage, "output_tokens", 0)
+                if actual_output > 0:
+                    output_tokens = actual_output
 
     # Close any open text block
     if text_block_started:

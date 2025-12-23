@@ -14,8 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .context import create_context, set_context, reset_context, get_context
-from .access_log import log_request
+from ..core import create_context, set_context, reset_context, get_context, log_request
 
 
 logger = logging.getLogger(__name__)

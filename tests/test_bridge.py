@@ -2,12 +2,12 @@
 
 import pytest
 
-from claude8code.bridge import (
+from src.sdk.bridge import (
     build_prompt_from_messages,
     generate_message_id,
     MODEL_MAP,
 )
-from claude8code.models import MessagesRequest, Message, ContentBlockText
+from src.models import MessagesRequest, Message, ContentBlockText
 
 
 class TestMessageIdGeneration:

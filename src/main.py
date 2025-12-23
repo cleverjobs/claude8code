@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import sys
 
 import uvicorn
 
-from .config import settings
+from .core import settings
 
 
 def main():
@@ -21,7 +20,7 @@ Examples:
   claude8code --port 8080              # Custom port
   claude8code --host 127.0.0.1         # Localhost only
   claude8code --debug                  # Enable debug logging
-  
+
 Environment variables:
   CLAUDE8CODE_HOST              Server host (default: 0.0.0.0)
   CLAUDE8CODE_PORT              Server port (default: 8787)
@@ -43,7 +42,7 @@ n8n Integration:
   4. Use Anthropic Chat Model node with any API key
         """,
     )
-    
+
     parser.add_argument(
         "--host",
         type=str,
@@ -77,14 +76,14 @@ n8n Integration:
         action="version",
         version="claude8code 0.1.0",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Override settings from CLI args
     host = args.host or settings.host
     port = args.port or settings.port
     debug = args.debug or settings.debug
-    
+
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║                        claude8code                            ║
@@ -94,9 +93,9 @@ n8n Integration:
 ║  Docs:     http://{host}:{port}/docs{' ' * (33 - len(str(port)))}║
 ╚═══════════════════════════════════════════════════════════════╝
     """)
-    
+
     uvicorn.run(
-        "claude8code.server:app",
+        "src.api.app:app",
         host=host,
         port=port,
         reload=args.reload,

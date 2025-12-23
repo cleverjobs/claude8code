@@ -11,8 +11,7 @@ from typing import AsyncIterator, Any
 
 from starlette.responses import StreamingResponse
 
-from .context import RequestContext, get_context
-from .metrics import record_stream_completion
+from ..core import RequestContext, get_context, record_stream_completion
 
 
 logger = logging.getLogger(__name__)

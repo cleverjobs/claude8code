@@ -5,7 +5,7 @@ These tools demonstrate how to create custom tools using the @tool decorator
 from claude_agent_sdk. Tools registered here can be used with create_sdk_mcp_server().
 
 Usage:
-    from claude8code.mcp_tools import get_custom_tools, create_tools_server
+    from src.sdk.mcp_tools import get_custom_tools, create_tools_server
     tools = get_custom_tools()
     server = create_tools_server()
 """

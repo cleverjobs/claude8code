@@ -39,8 +39,8 @@ class TestModelsEndpoint:
         # Check model structure
         model = data["data"][0]
         assert "id" in model
-        assert "object" in model
-        assert model["object"] == "model"
+        assert "type" in model
+        assert model["type"] == "model"
 
     def test_models_contains_expected(self, client: TestClient):
         """Test that expected models are in the list."""
