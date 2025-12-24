@@ -438,25 +438,29 @@ Optional dependencies are handled gracefully:
 ## Development
 
 ```bash
-# Clone and install dev dependencies
+# Clone and install dependencies
 git clone https://github.com/krisjobs/claude8code.git
 cd claude8code
-make install
+uv sync --all-extras
+
+# Run server
+uv run python main.py
 
 # Run with auto-reload
-make run
+uv run python main.py --reload
 
 # Run tests
-make test
+uv run pytest
 
 # Run tests with coverage
-make coverage
+uv run pytest --cov=src
 
 # Lint and type check
-make lint
+uv run ruff check src tests
+uv run mypy src
 
 # Format code
-make format
+uv run ruff format src tests
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines.
@@ -497,8 +501,8 @@ curl http://localhost:8787/health
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 Before submitting a PR:
-1. Run `make lint` to check code quality
-2. Run `make test` to verify all tests pass
+1. Run `uv run ruff check src tests` to check code quality
+2. Run `uv run pytest` to verify all tests pass
 3. Update documentation if needed
 
 Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.

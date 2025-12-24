@@ -18,18 +18,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from ..core import (
-    settings,
-    init_app_info,
     get_metrics,
     get_metrics_content_type,
     init_access_log,
+    init_app_info,
+    settings,
     shutdown_access_log,
 )
 from ..models import ErrorType
-from ..sdk import init_pool, shutdown_pool, session_manager, get_pool
+from ..sdk import init_pool, session_manager, shutdown_pool
 from .middleware import RequestContextMiddleware
 from .routes import api_router
-
 
 # Configure logging
 logging.basicConfig(
@@ -63,7 +62,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"   Permission mode: {settings.permission_mode}")
     logger.info(f"   SDK message mode: {settings.sdk_message_mode.value}")
     logger.info(f"   Session pool: max={pool._max_sessions}, ttl={pool._ttl_seconds}s")
-    logger.info(f"   Metrics endpoint: /metrics")
+    logger.info("   Metrics endpoint: /metrics")
     if settings.auth_key:
         logger.info("   Authentication: ENABLED (API key required)")
     else:

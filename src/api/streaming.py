@@ -7,12 +7,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import AsyncIterator, Any
+from typing import Any, AsyncIterator
 
 from starlette.responses import StreamingResponse
 
 from ..core import RequestContext, get_context, record_stream_completion
-
 
 logger = logging.getLogger(__name__)
 

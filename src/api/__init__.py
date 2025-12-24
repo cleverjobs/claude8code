@@ -8,8 +8,8 @@ This package contains:
 - routes: API route handlers (imported separately)
 """
 
-from .security import verify_api_key
 from .middleware import RequestContextMiddleware, RequestLoggingMiddleware
+from .security import verify_api_key
 from .streaming import StreamingResponseWithLogging, wrap_stream_with_logging
 
 __all__ = [

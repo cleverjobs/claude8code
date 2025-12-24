@@ -7,7 +7,21 @@ the official API response format.
 from __future__ import annotations
 
 from typing import Any, Literal
+
 from pydantic import BaseModel
+
+from .requests import Citation
+
+
+class CacheCreationUsage(BaseModel):
+    """Detailed cache creation usage by TTL."""
+    ephemeral_5m_input_tokens: int = 0
+    ephemeral_1h_input_tokens: int = 0
+
+
+class ServerToolUsage(BaseModel):
+    """Server-side tool usage statistics."""
+    web_search_requests: int = 0
 
 
 class Usage(BaseModel):
@@ -16,12 +30,16 @@ class Usage(BaseModel):
     output_tokens: int
     cache_creation_input_tokens: int | None = None
     cache_read_input_tokens: int | None = None
+    cache_creation: CacheCreationUsage | None = None
+    server_tool_use: ServerToolUsage | None = None
+    service_tier: Literal["standard", "priority", "batch"] | None = None
 
 
 class TextBlock(BaseModel):
     """Text block in response content."""
     type: Literal["text"] = "text"
     text: str
+    citations: list[Citation] | None = None
 
 
 class ThinkingBlock(BaseModel):
@@ -90,3 +108,8 @@ class ModelsListResponse(BaseModel):
     first_id: str | None = None
     last_id: str | None = None
     has_more: bool = False
+
+
+class CountTokensResponse(BaseModel):
+    """Response for POST /v1/messages/count_tokens - matches Anthropic's schema."""
+    input_tokens: int

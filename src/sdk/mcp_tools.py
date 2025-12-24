@@ -12,13 +12,13 @@ Usage:
 
 from __future__ import annotations
 
-import os
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import tool, create_sdk_mcp_server
+from claude_agent_sdk import create_sdk_mcp_server, tool
 
 
 @tool("get_current_time", "Get the current date and time in ISO format", {})
@@ -104,8 +104,8 @@ async def read_file_preview(args: dict[str, Any]) -> dict[str, Any]:
 @tool("get_env_info", "Get environment information (cwd, Python version, platform)", {})
 async def get_env_info(args: dict[str, Any]) -> dict[str, Any]:
     """Get environment information."""
-    import sys
     import platform
+    import sys
 
     result = {
         "cwd": os.getcwd(),

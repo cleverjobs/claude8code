@@ -14,15 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import AsyncIterator, Any
-from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 from settings import settings
-
 
 logger = logging.getLogger(__name__)
 

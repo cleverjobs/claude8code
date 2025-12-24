@@ -7,6 +7,7 @@ responses matching Anthropic's API specification.
 from __future__ import annotations
 
 from typing import Any, Literal
+
 from pydantic import BaseModel
 
 from .responses import (
@@ -47,7 +48,21 @@ class ContentBlockDeltaToolInput(BaseModel):
     partial_json: str
 
 
-ContentBlockDelta = ContentBlockDeltaText | ContentBlockDeltaThinking | ContentBlockDeltaToolInput
+class ContentBlockDeltaSignature(BaseModel):
+    """Signature delta for thinking blocks.
+
+    Contains a cryptographic signature for thinking content verification.
+    """
+    type: Literal["signature_delta"] = "signature_delta"
+    signature: str
+
+
+ContentBlockDelta = (
+    ContentBlockDeltaText
+    | ContentBlockDeltaThinking
+    | ContentBlockDeltaToolInput
+    | ContentBlockDeltaSignature
+)
 
 
 class ContentBlockDeltaEvent(BaseModel):

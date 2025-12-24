@@ -10,18 +10,18 @@ from __future__ import annotations
 
 import time
 from functools import wraps
-from typing import Callable, Any, TYPE_CHECKING
+from typing import Any, Callable
 
 # Graceful degradation: provide no-op implementations if prometheus_client unavailable
 try:
     from prometheus_client import (
-        Counter,
-        Histogram,
-        Gauge,
-        Info,
-        generate_latest,
         CONTENT_TYPE_LATEST,
         REGISTRY,
+        Counter,
+        Gauge,
+        Histogram,
+        Info,
+        generate_latest,
     )
     PROMETHEUS_AVAILABLE = True
 except ImportError:

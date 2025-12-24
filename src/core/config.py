@@ -16,17 +16,19 @@ if str(_project_root) not in sys.path:
 
 # Import from new settings module
 from settings import (
-    Settings,
-    get_settings,
-    settings as get_settings_singleton,
-    reload_settings,
-    SDKMessageMode,
-    SystemPromptMode,
-    ServerConfig,
     ClaudeConfig,
-    SecurityConfig,
-    SessionConfig,
     ObservabilityConfig,
+    SDKMessageMode,
+    SecurityConfig,
+    ServerConfig,
+    SessionConfig,
+    Settings,
+    SystemPromptMode,
+    get_settings,
+    reload_settings,
+)
+from settings import (
+    settings as get_settings_singleton,
 )
 
 # Module-level settings singleton for backwards compatibility

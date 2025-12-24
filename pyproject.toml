@@ -32,11 +32,13 @@ dependencies = [
 metrics = ["prometheus-client>=0.21.0"]
 analytics = ["duckdb>=1.0.0"]
 logging = ["structlog>=24.0.0"]
+tokenizer = ["tiktoken>=0.7.0"]
 # Install all optional features
 all = [
     "prometheus-client>=0.21.0",
     "duckdb>=1.0.0",
     "structlog>=24.0.0",
+    "tiktoken>=0.7.0",
 ]
 # Development dependencies
 dev = [
@@ -50,7 +52,7 @@ dev = [
 ]
 
 [project.scripts]
-claude8code = "src.main:main"
+claude8code = "main:main"
 
 [build-system]
 requires = ["hatchling"]

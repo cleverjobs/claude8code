@@ -64,7 +64,7 @@ class TestAccessLogWriter:
     @pytest.mark.asyncio
     @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
     async def test_writer_log_request(self):
-        """Test logging a request doesn't raise errors."""
+        """Test logging a request and querying it back."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
             writer = AccessLogWriter(db_path=db_path, batch_size=1)
@@ -82,14 +82,23 @@ class TestAccessLogWriter:
                     tokens_out=50,
                 )
 
-                # Should not raise
                 await writer.log(ctx, status_code=200)
 
-                # Force flush - may fail due to schema issues but shouldn't crash
+                # Force flush
                 await writer._flush()
 
-                # Verify queue was processed (even if DB write failed)
-                assert writer._queue.qsize() == 0
+                # Query to verify record was written
+                results = writer.query("SELECT * FROM access_logs")
+                assert len(results) == 1
+                assert results[0]["request_id"] == "req_test123"
+                assert results[0]["path"] == "/v1/messages"
+                assert results[0]["method"] == "POST"
+                assert results[0]["model"] == "claude-sonnet-4-5"
+                assert results[0]["input_tokens"] == 100
+                assert results[0]["output_tokens"] == 50
+                assert results[0]["status_code"] == 200
+                # Auto-increment ID should be 1
+                assert results[0]["id"] == 1
             finally:
                 await writer.stop()
 

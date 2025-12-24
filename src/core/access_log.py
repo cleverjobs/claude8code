@@ -26,14 +26,13 @@ Example queries:
 
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from .context import RequestContext
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +48,12 @@ except ImportError:
 
 
 # SQL schema for access logs table
+# DuckDB requires SEQUENCE + DEFAULT nextval() for auto-increment IDs
 ACCESS_LOGS_SCHEMA = """
+CREATE SEQUENCE IF NOT EXISTS access_logs_id_seq;
+
 CREATE TABLE IF NOT EXISTS access_logs (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY DEFAULT nextval('access_logs_id_seq'),
     request_id VARCHAR NOT NULL,
     session_id VARCHAR,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

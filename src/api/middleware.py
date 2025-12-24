@@ -8,14 +8,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Callable, Awaitable
+from typing import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from ..core import create_context, set_context, reset_context, get_context, log_request
-
+from ..core import create_context, log_request, reset_context, set_context
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +53,18 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             # Process request
             response = await call_next(request)
 
-            # Add request ID to response headers
+            # Add request ID to response headers (both Anthropic and x- format)
+            response.headers["request-id"] = context.request_id
             response.headers["x-request-id"] = context.request_id
+
+            # Add Anthropic-compatible rate limit headers (informational)
+            # These are placeholders since we don't enforce rate limits
+            response.headers["anthropic-ratelimit-requests-limit"] = "1000"
+            response.headers["anthropic-ratelimit-requests-remaining"] = "999"
+            response.headers["anthropic-ratelimit-requests-reset"] = "2025-01-01T00:00:00Z"
+            response.headers["anthropic-ratelimit-tokens-limit"] = "100000"
+            response.headers["anthropic-ratelimit-tokens-remaining"] = "99999"
+            response.headers["anthropic-ratelimit-tokens-reset"] = "2025-01-01T00:00:00Z"
 
             return response
 

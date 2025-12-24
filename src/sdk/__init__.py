@@ -6,29 +6,44 @@ This package contains:
 - mcp_tools: Custom MCP tools for Claude Agent SDK
 """
 
+from .batch_processor import (
+    BatchProcessor,
+    get_batch_processor,
+    init_batch_processor,
+    shutdown_batch_processor,
+)
 from .bridge import (
-    process_request,
-    process_request_streaming,
+    MODEL_MAP,
+    SessionManager,
     build_claude_options,
     build_prompt_from_messages,
     get_sdk_message_mode,
+    process_request,
+    process_request_streaming,
     session_manager,
-    SessionManager,
-    MODEL_MAP,
 )
-
+from .file_store import (
+    FileStore,
+    get_file_store,
+    init_file_store,
+    shutdown_file_store,
+)
+from .mcp_tools import (
+    create_tools_server,
+    get_custom_tools,
+    get_tool_names,
+)
 from .session_pool import (
-    SessionPool,
     PooledSession,
+    SessionPool,
     get_pool,
     init_pool,
     shutdown_pool,
 )
-
-from .mcp_tools import (
-    get_custom_tools,
-    get_tool_names,
-    create_tools_server,
+from .tokenizer import (
+    TIKTOKEN_AVAILABLE,
+    count_request_tokens,
+    count_tokens,
 )
 
 __all__ = [
@@ -51,4 +66,18 @@ __all__ = [
     "get_custom_tools",
     "get_tool_names",
     "create_tools_server",
+    # Tokenizer
+    "count_tokens",
+    "count_request_tokens",
+    "TIKTOKEN_AVAILABLE",
+    # File Store
+    "FileStore",
+    "get_file_store",
+    "init_file_store",
+    "shutdown_file_store",
+    # Batch Processor
+    "BatchProcessor",
+    "get_batch_processor",
+    "init_batch_processor",
+    "shutdown_batch_processor",
 ]

@@ -11,22 +11,22 @@ Supports SDK message modes:
 
 from __future__ import annotations
 
-import uuid
-import json
 import asyncio
-from typing import AsyncIterator, Any
+import json
+import uuid
 from pathlib import Path
+from typing import Any, AsyncIterator
 
 from claude_agent_sdk import (
-    query,
+    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    AssistantMessage,
-    UserMessage,
-    TextBlock,
-    ToolUseBlock as SdkToolUseBlock,
-    ToolResultBlock as SdkToolResultBlock,
     ResultMessage,
+    TextBlock,
+    query,
+)
+from claude_agent_sdk import (
+    ToolUseBlock as SdkToolUseBlock,
 )
 
 # Try to import ThinkingBlock - may not be available in all SDK versions
@@ -39,27 +39,30 @@ except ImportError:
 
 from ..core import settings
 from ..models import (
-    MessagesRequest,
-    MessagesResponse,
-    Usage,
-    TextBlock as ResponseTextBlock,
-    ThinkingBlock as ResponseThinkingBlock,
-    ToolUseResponseBlock,
-    ResponseContentBlock,
-    StreamEvent,
-    MessageStartEvent,
-    ContentBlockStartEvent,
     ContentBlockDeltaEvent,
-    ContentBlockStopEvent,
-    MessageDeltaEvent,
-    MessageStopEvent,
     ContentBlockDeltaText,
     ContentBlockDeltaThinking,
+    ContentBlockStartEvent,
+    ContentBlockStopEvent,
     MessageDelta,
+    MessageDeltaEvent,
     MessageDeltaUsage,
+    MessagesRequest,
+    MessagesResponse,
+    MessageStartEvent,
+    MessageStopEvent,
+    ResponseContentBlock,
     SDKMessageMode,
+    StreamEvent,
+    ToolUseResponseBlock,
+    Usage,
 )
-
+from ..models import (
+    TextBlock as ResponseTextBlock,
+)
+from ..models import (
+    ThinkingBlock as ResponseThinkingBlock,
+)
 
 # Model mapping: n8n model names -> Claude Agent SDK models
 MODEL_MAP = {
@@ -585,10 +588,3 @@ session_manager = SessionManager()
 
 
 # Re-export session pool for convenience
-from .session_pool import (
-    SessionPool,
-    PooledSession,
-    get_pool,
-    init_pool,
-    shutdown_pool,
-)

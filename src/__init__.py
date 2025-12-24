@@ -13,16 +13,14 @@ Subpackages:
 __version__ = "0.1.0"
 
 # Re-export commonly used items for convenience
+from .core import settings
 from .models import (
+    ErrorResponse,
+    ErrorType,
     MessagesRequest,
     MessagesResponse,
-    ErrorType,
-    ErrorResponse,
     SDKMessageMode,
 )
-
-from .core import settings
-
 from .sdk import (
     process_request,
     process_request_streaming,
