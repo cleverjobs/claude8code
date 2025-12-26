@@ -62,11 +62,13 @@ class ErrorType(str, Enum):
 
 class ErrorDetail(BaseModel):
     """Error detail object."""
+
     type: str
     message: str
 
 
 class ErrorResponse(BaseModel):
     """Error response body."""
+
     type: Literal["error"] = "error"
     error: ErrorDetail

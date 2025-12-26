@@ -39,6 +39,7 @@ DEFAULT_CONCURRENCY = 5
 @dataclass
 class StoredBatch:
     """Internal representation of a stored batch."""
+
     id: str
     requests: list[BatchRequest]
     created_at: datetime
@@ -48,7 +49,7 @@ class StoredBatch:
     cancel_initiated_at: datetime | None = None
     archived_at: datetime | None = None
     results: dict[str, BatchResultLine] = field(default_factory=dict)
-    _processing_task: asyncio.Task | None = field(default=None, repr=False)
+    _processing_task: asyncio.Task[None] | None = field(default=None, repr=False)
     _canceled: bool = field(default=False, repr=False)
 
     def get_request_counts(self) -> RequestCounts:
@@ -81,7 +82,9 @@ class StoredBatch:
             ended_at=self.ended_at.isoformat() + "Z" if self.ended_at else None,
             expires_at=self.expires_at.isoformat() + "Z",
             archived_at=self.archived_at.isoformat() + "Z" if self.archived_at else None,
-            cancel_initiated_at=self.cancel_initiated_at.isoformat() + "Z" if self.cancel_initiated_at else None,
+            cancel_initiated_at=(
+                self.cancel_initiated_at.isoformat() + "Z" if self.cancel_initiated_at else None
+            ),
             results_url=results_url,
         )
 
@@ -93,6 +96,7 @@ class BatchProcessor:
     Processes batches using asyncio for parallel execution.
     Unlike the real API, batches are processed immediately.
     """
+
     concurrency: int = DEFAULT_CONCURRENCY
     results_ttl_hours: int = 24 * 29  # 29 days like real API
     _batches: dict[str, StoredBatch] = field(default_factory=dict)
@@ -162,9 +166,7 @@ class BatchProcessor:
                     logger.warning(f"Batch request {request.custom_id} failed: {e}")
                     batch.results[request.custom_id] = BatchResultLine(
                         custom_id=request.custom_id,
-                        result=ErroredResult(
-                            error={"type": "api_error", "message": str(e)}
-                        ),
+                        result=ErroredResult(error={"type": "api_error", "message": str(e)}),
                     )
 
         # Process all requests concurrently (with semaphore limiting)
@@ -182,10 +184,7 @@ class BatchProcessor:
 
         # Convert batch params to MessagesRequest
         params = request.params
-        messages = [
-            Message(role=m["role"], content=m["content"])
-            for m in params.messages
-        ]
+        messages = [Message(role=m["role"], content=m["content"]) for m in params.messages]
 
         msg_request = MessagesRequest(
             model=params.model,
@@ -204,7 +203,8 @@ class BatchProcessor:
 
         # Execute via the main process_request function
         response = await self._process_request_fn(msg_request)
-        return response.model_dump()
+        result: dict[str, Any] = response.model_dump()
+        return result
 
     async def get_batch(self, batch_id: str) -> MessageBatch | None:
         """Get a batch by ID.
@@ -251,7 +251,7 @@ class BatchProcessor:
                     cursor_idx = i
                     break
             if cursor_idx is not None:
-                sorted_batches = sorted_batches[cursor_idx + 1:]
+                sorted_batches = sorted_batches[cursor_idx + 1 :]
 
         if before_id:
             cursor_idx = None
@@ -336,11 +336,12 @@ class BatchProcessor:
         for custom_id, result in batch.results.items():
             yield json.dumps(result.model_dump()) + "\n"
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         """Get processor statistics."""
         status_counts = {"in_progress": 0, "canceling": 0, "ended": 0}
         for batch in self._batches.values():
-            status_counts[batch.processing_status] = status_counts.get(batch.processing_status, 0) + 1
+            status = batch.processing_status
+            status_counts[status] = status_counts.get(status, 0) + 1
 
         return {
             "batch_count": len(self._batches),

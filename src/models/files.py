@@ -16,6 +16,7 @@ class FileMetadata(BaseModel):
 
     Returned when uploading, listing, or retrieving file info.
     """
+
     id: str
     type: Literal["file"] = "file"
     filename: str
@@ -27,12 +28,14 @@ class FileMetadata(BaseModel):
 
 class FileDeletedResponse(BaseModel):
     """Response when a file is deleted."""
+
     id: str
     type: Literal["file_deleted"] = "file_deleted"
 
 
 class FilesListResponse(BaseModel):
     """Response for GET /v1/files - matches Anthropic's pagination format."""
+
     data: list[FileMetadata]
     first_id: str | None = None
     last_id: str | None = None

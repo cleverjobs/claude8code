@@ -27,6 +27,7 @@ MAX_FILE_SIZE = 500 * 1024 * 1024
 @dataclass
 class StoredFile:
     """Internal representation of a stored file."""
+
     id: str
     filename: str
     mime_type: str
@@ -54,10 +55,11 @@ class FileStore:
     Stores files locally and tracks metadata in memory.
     Supports TTL-based expiration for automatic cleanup.
     """
+
     storage_dir: Path
     default_ttl_hours: int = 24
     _files: dict[str, StoredFile] = field(default_factory=dict)
-    _cleanup_task: asyncio.Task | None = None
+    _cleanup_task: asyncio.Task[None] | None = None
 
     def __post_init__(self) -> None:
         """Ensure storage directory exists."""
@@ -258,7 +260,7 @@ class FileStore:
                     cursor_idx = i
                     break
             if cursor_idx is not None:
-                sorted_files = sorted_files[cursor_idx + 1:]
+                sorted_files = sorted_files[cursor_idx + 1 :]
 
         if before_id:
             cursor_idx = None
@@ -275,7 +277,7 @@ class FileStore:
 
         return [f.to_metadata() for f in result], has_more
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, int | str]:
         """Get storage statistics."""
         total_size = sum(f.size_bytes for f in self._files.values())
         return {

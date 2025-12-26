@@ -4,25 +4,25 @@ import pytest
 from pydantic import ValidationError
 
 from src.models.batches import (
-    BatchRequestParams,
+    BatchesListResponse,
     BatchRequest,
+    BatchRequestParams,
+    BatchResultLine,
+    CanceledResult,
     CreateBatchRequest,
-    RequestCounts,
+    ErroredResult,
+    ExpiredResult,
     MessageBatch,
     MessageBatchDeletedResponse,
-    BatchesListResponse,
+    RequestCounts,
     SucceededResult,
-    ErroredResult,
-    CanceledResult,
-    ExpiredResult,
-    BatchResultLine,
 )
 
 
 class TestBatchRequestParams:
     """Test BatchRequestParams model."""
 
-    def test_minimal_params(self):
+    def test_minimal_params(self) -> None:
         """Test creating with minimal required fields."""
         params = BatchRequestParams(
             model="claude-sonnet-4-5-20250514",
@@ -33,7 +33,7 @@ class TestBatchRequestParams:
         assert len(params.messages) == 1
         assert params.max_tokens == 4096  # default
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test all default values."""
         params = BatchRequestParams(
             model="claude-sonnet-4-5",
@@ -51,7 +51,7 @@ class TestBatchRequestParams:
         assert params.metadata is None
         assert params.thinking is None
 
-    def test_all_optional_fields(self):
+    def test_all_optional_fields(self) -> None:
         """Test setting all optional fields."""
         params = BatchRequestParams(
             model="claude-sonnet-4-5",
@@ -79,7 +79,7 @@ class TestBatchRequestParams:
         assert params.metadata == {"user_id": "123"}
         assert params.thinking == {"type": "enabled"}
 
-    def test_system_as_list(self):
+    def test_system_as_list(self) -> None:
         """Test system prompt as list of blocks."""
         params = BatchRequestParams(
             model="claude-sonnet-4-5",
@@ -93,7 +93,7 @@ class TestBatchRequestParams:
 class TestBatchRequest:
     """Test BatchRequest model."""
 
-    def test_valid_request(self):
+    def test_valid_request(self) -> None:
         """Test creating valid BatchRequest."""
         request = BatchRequest(
             custom_id="my-request-1",
@@ -106,7 +106,7 @@ class TestBatchRequest:
         assert request.custom_id == "my-request-1"
         assert request.params.model == "claude-sonnet-4-5"
 
-    def test_custom_id_min_length(self):
+    def test_custom_id_min_length(self) -> None:
         """Test custom_id minimum length validation."""
         with pytest.raises(ValidationError) as exc_info:
             BatchRequest(
@@ -118,7 +118,7 @@ class TestBatchRequest:
             )
         assert "custom_id" in str(exc_info.value).lower() or "string" in str(exc_info.value).lower()
 
-    def test_custom_id_max_length(self):
+    def test_custom_id_max_length(self) -> None:
         """Test custom_id maximum length validation."""
         with pytest.raises(ValidationError) as exc_info:
             BatchRequest(
@@ -130,7 +130,7 @@ class TestBatchRequest:
             )
         assert "custom_id" in str(exc_info.value).lower() or "string" in str(exc_info.value).lower()
 
-    def test_custom_id_exact_max_length(self):
+    def test_custom_id_exact_max_length(self) -> None:
         """Test custom_id at exactly max length."""
         request = BatchRequest(
             custom_id="x" * 64,  # exactly 64 chars
@@ -145,7 +145,7 @@ class TestBatchRequest:
 class TestCreateBatchRequest:
     """Test CreateBatchRequest model."""
 
-    def test_valid_request(self):
+    def test_valid_request(self) -> None:
         """Test creating valid CreateBatchRequest."""
         request = CreateBatchRequest(
             requests=[
@@ -161,12 +161,12 @@ class TestCreateBatchRequest:
 
         assert len(request.requests) == 1
 
-    def test_requests_min_length(self):
+    def test_requests_min_length(self) -> None:
         """Test requests minimum length validation."""
         with pytest.raises(ValidationError):
             CreateBatchRequest(requests=[])  # empty list
 
-    def test_requests_max_length(self):
+    def test_requests_max_length(self) -> None:
         """Test requests maximum length validation."""
         requests = [
             BatchRequest(
@@ -182,7 +182,7 @@ class TestCreateBatchRequest:
         with pytest.raises(ValidationError):
             CreateBatchRequest(requests=requests)
 
-    def test_requests_at_max(self):
+    def test_requests_at_max(self) -> None:
         """Test requests at exactly max length."""
         requests = [
             BatchRequest(
@@ -202,7 +202,7 @@ class TestCreateBatchRequest:
 class TestRequestCounts:
     """Test RequestCounts model."""
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         """Test all default values are 0."""
         counts = RequestCounts()
 
@@ -212,7 +212,7 @@ class TestRequestCounts:
         assert counts.canceled == 0
         assert counts.expired == 0
 
-    def test_all_fields(self):
+    def test_all_fields(self) -> None:
         """Test setting all fields."""
         counts = RequestCounts(
             processing=5,
@@ -228,7 +228,7 @@ class TestRequestCounts:
         assert counts.canceled == 1
         assert counts.expired == 0
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization."""
         counts = RequestCounts(succeeded=5, errored=1)
         data = counts.model_dump()
@@ -241,7 +241,7 @@ class TestRequestCounts:
 class TestMessageBatch:
     """Test MessageBatch model."""
 
-    def test_minimal_batch(self):
+    def test_minimal_batch(self) -> None:
         """Test creating batch with minimal fields."""
         batch = MessageBatch(
             id="msgbatch_abc123",
@@ -259,7 +259,7 @@ class TestMessageBatch:
         assert batch.cancel_initiated_at is None
         assert batch.results_url is None
 
-    def test_all_fields(self):
+    def test_all_fields(self) -> None:
         """Test batch with all fields."""
         batch = MessageBatch(
             id="msgbatch_xyz789",
@@ -278,19 +278,19 @@ class TestMessageBatch:
         assert batch.cancel_initiated_at == "2024-01-15T12:02:00Z"
         assert batch.results_url == "https://example.com/results"
 
-    def test_processing_status_values(self):
+    def test_processing_status_values(self) -> None:
         """Test valid processing status values."""
         for status in ["in_progress", "canceling", "ended"]:
             batch = MessageBatch(
                 id="msgbatch_test",
-                processing_status=status,
+                processing_status=status,  # type: ignore[arg-type]
                 request_counts=RequestCounts(),
                 created_at="2024-01-15T12:00:00Z",
                 expires_at="2024-02-13T12:00:00Z",
             )
             assert batch.processing_status == status
 
-    def test_default_type(self):
+    def test_default_type(self) -> None:
         """Test default type is 'message_batch'."""
         batch = MessageBatch(
             id="msgbatch_test",
@@ -305,19 +305,19 @@ class TestMessageBatch:
 class TestMessageBatchDeletedResponse:
     """Test MessageBatchDeletedResponse model."""
 
-    def test_create_response(self):
+    def test_create_response(self) -> None:
         """Test creating deleted response."""
         response = MessageBatchDeletedResponse(id="msgbatch_deleted")
 
         assert response.id == "msgbatch_deleted"
         assert response.type == "message_batch_deleted"
 
-    def test_default_type(self):
+    def test_default_type(self) -> None:
         """Test default type."""
         response = MessageBatchDeletedResponse(id="msgbatch_xyz")
         assert response.type == "message_batch_deleted"
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization."""
         response = MessageBatchDeletedResponse(id="msgbatch_123")
         data = response.model_dump()
@@ -329,7 +329,7 @@ class TestMessageBatchDeletedResponse:
 class TestBatchesListResponse:
     """Test BatchesListResponse model."""
 
-    def test_empty_list(self):
+    def test_empty_list(self) -> None:
         """Test response with empty list."""
         response = BatchesListResponse(data=[])
 
@@ -338,7 +338,7 @@ class TestBatchesListResponse:
         assert response.last_id is None
         assert response.has_more is False
 
-    def test_with_batches(self):
+    def test_with_batches(self) -> None:
         """Test response with batches."""
         batches = [
             MessageBatch(
@@ -369,7 +369,7 @@ class TestBatchesListResponse:
         assert response.last_id == "msgbatch_2"
         assert response.has_more is True
 
-    def test_default_has_more(self):
+    def test_default_has_more(self) -> None:
         """Test default has_more is False."""
         response = BatchesListResponse(data=[])
         assert response.has_more is False
@@ -378,7 +378,7 @@ class TestBatchesListResponse:
 class TestResultTypes:
     """Test batch result type models."""
 
-    def test_succeeded_result(self):
+    def test_succeeded_result(self) -> None:
         """Test SucceededResult model."""
         result = SucceededResult(
             message={
@@ -391,7 +391,7 @@ class TestResultTypes:
         assert result.type == "succeeded"
         assert result.message["id"] == "msg_123"
 
-    def test_errored_result(self):
+    def test_errored_result(self) -> None:
         """Test ErroredResult model."""
         result = ErroredResult(
             error={
@@ -403,19 +403,19 @@ class TestResultTypes:
         assert result.type == "errored"
         assert result.error["type"] == "api_error"
 
-    def test_canceled_result(self):
+    def test_canceled_result(self) -> None:
         """Test CanceledResult model."""
         result = CanceledResult()
 
         assert result.type == "canceled"
 
-    def test_expired_result(self):
+    def test_expired_result(self) -> None:
         """Test ExpiredResult model."""
         result = ExpiredResult()
 
         assert result.type == "expired"
 
-    def test_succeeded_result_model_dump(self):
+    def test_succeeded_result_model_dump(self) -> None:
         """Test SucceededResult serialization."""
         result = SucceededResult(message={"id": "msg_abc"})
         data = result.model_dump()
@@ -423,7 +423,7 @@ class TestResultTypes:
         assert data["type"] == "succeeded"
         assert data["message"]["id"] == "msg_abc"
 
-    def test_errored_result_model_dump(self):
+    def test_errored_result_model_dump(self) -> None:
         """Test ErroredResult serialization."""
         result = ErroredResult(error={"type": "error", "message": "Failed"})
         data = result.model_dump()
@@ -435,7 +435,7 @@ class TestResultTypes:
 class TestBatchResultLine:
     """Test BatchResultLine model."""
 
-    def test_with_succeeded_result(self):
+    def test_with_succeeded_result(self) -> None:
         """Test result line with succeeded result."""
         line = BatchResultLine(
             custom_id="req-1",
@@ -445,7 +445,7 @@ class TestBatchResultLine:
         assert line.custom_id == "req-1"
         assert line.result.type == "succeeded"
 
-    def test_with_errored_result(self):
+    def test_with_errored_result(self) -> None:
         """Test result line with errored result."""
         line = BatchResultLine(
             custom_id="req-2",
@@ -455,7 +455,7 @@ class TestBatchResultLine:
         assert line.custom_id == "req-2"
         assert line.result.type == "errored"
 
-    def test_with_canceled_result(self):
+    def test_with_canceled_result(self) -> None:
         """Test result line with canceled result."""
         line = BatchResultLine(
             custom_id="req-3",
@@ -465,7 +465,7 @@ class TestBatchResultLine:
         assert line.custom_id == "req-3"
         assert line.result.type == "canceled"
 
-    def test_with_expired_result(self):
+    def test_with_expired_result(self) -> None:
         """Test result line with expired result."""
         line = BatchResultLine(
             custom_id="req-4",
@@ -475,7 +475,7 @@ class TestBatchResultLine:
         assert line.custom_id == "req-4"
         assert line.result.type == "expired"
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization for JSONL output."""
         line = BatchResultLine(
             custom_id="my-request",
@@ -487,10 +487,10 @@ class TestBatchResultLine:
         assert data["result"]["type"] == "succeeded"
         assert "message" in data["result"]
 
-    def test_required_fields(self):
+    def test_required_fields(self) -> None:
         """Test required fields."""
         with pytest.raises(ValidationError):
-            BatchResultLine(custom_id="test")  # missing result
+            BatchResultLine(custom_id="test")  # type: ignore[call-arg]  # missing result
 
         with pytest.raises(ValidationError):
-            BatchResultLine(result=CanceledResult())  # missing custom_id
+            BatchResultLine(result=CanceledResult())  # type: ignore[call-arg]  # missing custom_id

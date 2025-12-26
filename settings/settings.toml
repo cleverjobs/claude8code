@@ -14,13 +14,13 @@ log_level = "info"
 default_model = "claude-sonnet-4-5-20250514"
 max_turns = 10
 permission_mode = "acceptEdits"
-# cwd = "/path/to/workspace"  # Uncomment to set working directory
+cwd = "workspace"  # Working directory for Claude Code extensions (.claude/skills, commands, agents)
 
 # SDK message handling: forward | formatted | ignore
 sdk_message_mode = "forward"
 
 # Setting sources for Claude Agent SDK
-setting_sources = ["user", "project"]
+setting_sources = ["user", "project", "local"]
 
 [claude.system_prompt]
 mode = "claude_code"  # claude_code | custom
@@ -30,6 +30,16 @@ mode = "claude_code"  # claude_code | custom
 # Leave empty for all tools, or specify allowed tools
 allowed = []
 # allowed = ["Read", "Write", "Bash", "Glob", "Grep"]
+
+[claude.hooks]
+# SDK hooks for audit logging, permission control, and rate limiting
+audit_enabled = true
+permission_enabled = true
+rate_limit_enabled = false
+rate_limit_requests_per_minute = 60
+# Custom deny patterns (regex) for permission hook
+# Leave empty to use default patterns (blocks rm -rf /, fork bombs, etc.)
+deny_patterns = []
 
 [security]
 cors_origins = ["*"]

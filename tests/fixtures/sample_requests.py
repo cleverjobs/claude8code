@@ -1,7 +1,6 @@
 """Sample request data for testing."""
 
-from src.models import MessagesRequest, Message, ContentBlock
-
+from typing import Any
 
 # Simple text requests
 SIMPLE_MESSAGE_REQUEST = {
@@ -91,7 +90,7 @@ def make_request(
     max_tokens: int = 1024,
     stream: bool = False,
     system: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """Create a simple message request.
 
     Args:

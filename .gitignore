@@ -44,8 +44,9 @@ htmlcov/
 .env.local
 .envrc
 
-# Docker
-workspace/
+# Workspace - preserve structure, ignore user content
+workspace/*
+!workspace/.gitkeep
 
 # OS
 .DS_Store
@@ -61,8 +62,8 @@ data/*.duckdb
 data/*.duckdb.wal
 !data/.gitkeep
 
+# Claude Code
 .agents
 .claude
 .mcp.json
 CLAUDE.md
-# Claude Code

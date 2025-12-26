@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Graceful degradation: check if DuckDB is available
 try:
     import duckdb
+
     DUCKDB_AVAILABLE = True
 except ImportError:
     DUCKDB_AVAILABLE = False
@@ -293,9 +294,7 @@ class AccessLogWriter:
 
         try:
             # Get basic stats
-            row_count = self._conn.execute(
-                "SELECT COUNT(*) FROM access_logs"
-            ).fetchone()[0]
+            row_count = self._conn.execute("SELECT COUNT(*) FROM access_logs").fetchone()[0]
 
             date_range = self._conn.execute(
                 "SELECT MIN(timestamp), MAX(timestamp) FROM access_logs"
@@ -320,9 +319,7 @@ class AccessLogWriter:
                     "from": date_range[0].isoformat() if date_range[0] else None,
                     "to": date_range[1].isoformat() if date_range[1] else None,
                 },
-                "top_models": [
-                    {"model": m, "count": c} for m, c in model_stats
-                ],
+                "top_models": [{"model": m, "count": c} for m, c in model_stats],
                 "queue_size": self._queue.qsize(),
             }
         except Exception as e:
@@ -363,6 +360,7 @@ async def init_access_log(db_path: str | Path | None = None) -> AccessLogWriter 
     # Get path from settings if not provided
     if db_path is None:
         from settings import settings
+
         db_path = settings().observability.access_logs_path
 
     _writer = AccessLogWriter(db_path)

@@ -47,6 +47,6 @@ async def verify_api_key(
     # Auth required but no valid key provided
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing API key. Provide via x-api-key header or Authorization: Bearer <key>",
+        detail="Invalid or missing API key. Use x-api-key or Authorization: Bearer <key>",
         headers={"WWW-Authenticate": "Bearer"},
     )

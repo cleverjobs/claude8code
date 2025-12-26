@@ -190,7 +190,8 @@ class SessionPool:
         """Remove expired sessions from the pool."""
         async with self._lock:
             expired_ids = [
-                sid for sid, session in self._sessions.items()
+                sid
+                for sid, session in self._sessions.items()
                 if not session.is_active and session.is_expired(self._ttl_seconds)
             ]
 

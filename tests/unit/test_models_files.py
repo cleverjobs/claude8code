@@ -4,8 +4,8 @@ import pytest
 from pydantic import ValidationError
 
 from src.models.files import (
-    FileMetadata,
     FileDeletedResponse,
+    FileMetadata,
     FilesListResponse,
 )
 
@@ -13,7 +13,7 @@ from src.models.files import (
 class TestFileMetadata:
     """Test FileMetadata model."""
 
-    def test_create_with_all_fields(self):
+    def test_create_with_all_fields(self) -> None:
         """Test creating FileMetadata with all fields."""
         metadata = FileMetadata(
             id="file_abc123",
@@ -29,7 +29,7 @@ class TestFileMetadata:
         assert metadata.size_bytes == 1024
         assert metadata.created_at == "2024-01-15T12:00:00Z"
 
-    def test_default_type(self):
+    def test_default_type(self) -> None:
         """Test default type is 'file'."""
         metadata = FileMetadata(
             id="file_123",
@@ -41,7 +41,7 @@ class TestFileMetadata:
 
         assert metadata.type == "file"
 
-    def test_default_downloadable(self):
+    def test_default_downloadable(self) -> None:
         """Test default downloadable is True."""
         metadata = FileMetadata(
             id="file_123",
@@ -53,7 +53,7 @@ class TestFileMetadata:
 
         assert metadata.downloadable is True
 
-    def test_explicit_downloadable_false(self):
+    def test_explicit_downloadable_false(self) -> None:
         """Test explicitly setting downloadable to False."""
         metadata = FileMetadata(
             id="file_123",
@@ -66,7 +66,7 @@ class TestFileMetadata:
 
         assert metadata.downloadable is False
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization."""
         metadata = FileMetadata(
             id="file_xyz",
@@ -82,15 +82,15 @@ class TestFileMetadata:
         assert data["filename"] == "data.json"
         assert data["downloadable"] is True
 
-    def test_required_fields(self):
+    def test_required_fields(self) -> None:
         """Test that required fields must be provided."""
         with pytest.raises(ValidationError):
-            FileMetadata(
+            FileMetadata(  # type: ignore[call-arg]
                 id="file_123",
                 # missing filename, mime_type, size_bytes, created_at
             )
 
-    def test_large_size_bytes(self):
+    def test_large_size_bytes(self) -> None:
         """Test handling large file sizes."""
         metadata = FileMetadata(
             id="file_large",
@@ -106,19 +106,19 @@ class TestFileMetadata:
 class TestFileDeletedResponse:
     """Test FileDeletedResponse model."""
 
-    def test_create_response(self):
+    def test_create_response(self) -> None:
         """Test creating FileDeletedResponse."""
         response = FileDeletedResponse(id="file_deleted123")
 
         assert response.id == "file_deleted123"
         assert response.type == "file_deleted"
 
-    def test_default_type(self):
+    def test_default_type(self) -> None:
         """Test default type is 'file_deleted'."""
         response = FileDeletedResponse(id="file_abc")
         assert response.type == "file_deleted"
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization."""
         response = FileDeletedResponse(id="file_xyz")
 
@@ -126,16 +126,16 @@ class TestFileDeletedResponse:
         assert data["id"] == "file_xyz"
         assert data["type"] == "file_deleted"
 
-    def test_required_id(self):
+    def test_required_id(self) -> None:
         """Test that id is required."""
         with pytest.raises(ValidationError):
-            FileDeletedResponse()  # missing id
+            FileDeletedResponse()  # type: ignore[call-arg]  # missing id
 
 
 class TestFilesListResponse:
     """Test FilesListResponse model."""
 
-    def test_empty_list(self):
+    def test_empty_list(self) -> None:
         """Test response with empty list."""
         response = FilesListResponse(data=[])
 
@@ -144,7 +144,7 @@ class TestFilesListResponse:
         assert response.last_id is None
         assert response.has_more is False
 
-    def test_with_files(self):
+    def test_with_files(self) -> None:
         """Test response with files."""
         files = [
             FileMetadata(
@@ -175,12 +175,12 @@ class TestFilesListResponse:
         assert response.last_id == "file_2"
         assert response.has_more is True
 
-    def test_default_has_more(self):
+    def test_default_has_more(self) -> None:
         """Test default has_more is False."""
         response = FilesListResponse(data=[])
         assert response.has_more is False
 
-    def test_model_dump(self):
+    def test_model_dump(self) -> None:
         """Test model serialization."""
         response = FilesListResponse(
             data=[
@@ -203,7 +203,7 @@ class TestFilesListResponse:
         assert data["last_id"] == "file_1"
         assert data["has_more"] is False
 
-    def test_required_data(self):
+    def test_required_data(self) -> None:
         """Test that data is required."""
         with pytest.raises(ValidationError):
-            FilesListResponse()  # missing data
+            FilesListResponse()  # type: ignore[call-arg]  # missing data

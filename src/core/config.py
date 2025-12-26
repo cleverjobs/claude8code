@@ -15,7 +15,7 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 # Import from new settings module
-from settings import (
+from settings import (  # noqa: E402
     ClaudeConfig,
     ObservabilityConfig,
     SDKMessageMode,
@@ -27,9 +27,7 @@ from settings import (
     get_settings,
     reload_settings,
 )
-from settings import (
-    settings as get_settings_singleton,
-)
+from settings import settings as get_settings_singleton  # noqa: E402
 
 # Module-level settings singleton for backwards compatibility
 settings = get_settings_singleton()

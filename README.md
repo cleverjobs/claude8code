@@ -68,6 +68,7 @@ pip install -e ".[all]"
 - `metrics` - Prometheus metrics export (`prometheus-client`)
 - `analytics` - DuckDB access logs (`duckdb`)
 - `logging` - Structured logging (`structlog`)
+- `tokenizer` - Token counting (`tiktoken`)
 - `all` - All optional features
 
 ## Quick Start
@@ -218,6 +219,7 @@ CLAUDE8CODE_AUTH_KEY=secret
 | Endpoint | SDK Prefix Equivalent | Description |
 |----------|----------------------|-------------|
 | `POST /v1/messages` | `POST /sdk/v1/messages` | Create message (streaming & non-streaming) |
+| `POST /v1/messages/count_tokens` | `POST /sdk/v1/messages/count_tokens` | Count tokens before sending |
 | `GET /v1/models` | `GET /sdk/v1/models` | List available models |
 | `GET /health` | `GET /sdk/health` | Health check |
 
@@ -232,6 +234,27 @@ CLAUDE8CODE_AUTH_KEY=secret
 | `GET /v1/logs/stats` | Access log statistics (DuckDB) |
 | `GET /health` | Health check |
 | `GET /metrics` | Prometheus metrics |
+
+### Files API (Beta)
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /v1/files` | Upload file (max 500MB) |
+| `GET /v1/files` | List files with pagination |
+| `GET /v1/files/{id}` | Get file metadata |
+| `GET /v1/files/{id}/content` | Download file content |
+| `DELETE /v1/files/{id}` | Delete file |
+
+### Message Batches API
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /v1/messages/batches` | Create batch (processes immediately) |
+| `GET /v1/messages/batches` | List batches with pagination |
+| `GET /v1/messages/batches/{id}` | Get batch status |
+| `POST /v1/messages/batches/{id}/cancel` | Cancel in-progress batch |
+| `GET /v1/messages/batches/{id}/results` | Stream results as JSONL |
+| `DELETE /v1/messages/batches/{id}` | Delete completed batch |
 
 ### Request Headers
 
@@ -434,6 +457,163 @@ Optional dependencies are handled gracefully:
 - No Prometheus? Metrics silently disabled
 - No DuckDB? Access logs to stdout only
 - Server always starts and functions
+
+### File Storage
+
+claude8code includes local file storage for the Files API beta:
+
+- **Storage**: Local filesystem (configurable directory)
+- **Size limit**: 500 MB per file
+- **TTL**: Automatic cleanup after expiration (default 24 hours)
+- **MIME detection**: Automatic content type detection
+
+Files can be uploaded and referenced in Messages API requests using file IDs.
+
+### Message Batches
+
+Unlike Anthropic's production API which processes batches over 24 hours, claude8code processes batches **immediately** using asyncio for fast iteration:
+
+- **Concurrent processing**: Configurable parallelism
+- **JSONL results**: Stream results as they complete
+- **Lifecycle**: in_progress → ended (with cancel support)
+- **TTL**: Results retained for 29 days (matching Anthropic spec)
+
+```bash
+# Create batch
+curl -X POST http://localhost:8787/v1/messages/batches \
+  -H "Content-Type: application/json" \
+  -d '{"requests": [{"custom_id": "req-1", "params": {...}}]}'
+
+# Get results
+curl http://localhost:8787/v1/messages/batches/{batch_id}/results
+```
+
+### Token Counting
+
+Estimate token usage before sending requests:
+
+```bash
+curl -X POST http://localhost:8787/v1/messages/count_tokens \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5-20250514",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+Requires `tiktoken` optional dependency. Falls back to estimation if not installed.
+
+## Workspace & Extensibility
+
+claude8code supports Claude Code's extensibility features through a workspace directory. Add custom skills, commands, agents, hooks, and MCP servers.
+
+### Workspace Structure
+
+```
+workspace/
+├── .mcp.json               # MCP server configuration
+└── .claude/
+    ├── settings.json       # Hooks and permissions
+    ├── commands/           # Custom slash commands
+    │   └── {name}.md
+    ├── skills/             # Custom skills
+    │   └── {name}/
+    │       └── SKILL.md
+    └── agents/             # Custom subagents
+        └── {name}.md
+```
+
+### Adding a Slash Command
+
+Create `workspace/.claude/commands/my-command.md`:
+
+```markdown
+# /my-command
+
+Brief description.
+
+## Instructions
+When the user types `/my-command`:
+1. Perform action one
+2. Perform action two
+```
+
+### Adding a Skill
+
+Create `workspace/.claude/skills/my-skill/SKILL.md`:
+
+```markdown
+# My Skill
+
+## Description
+What this skill does and when it should be used.
+
+## Instructions
+When invoked:
+1. Step one
+2. Step two
+```
+
+### Adding an Agent
+
+Create `workspace/.claude/agents/my-agent.md`:
+
+```markdown
+# My Agent
+
+## Role
+Define the agent's role and capabilities.
+
+## Instructions
+How the agent should behave when spawned.
+```
+
+### Configuring Hooks
+
+Edit `workspace/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [{"type": "command", "command": "echo 'Running...'"}]
+      }
+    ]
+  }
+}
+```
+
+### Adding MCP Servers
+
+Edit `workspace/.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]
+    }
+  }
+}
+```
+
+### Configuring Workspace Path
+
+Default: `workspace/` relative to where claude8code starts.
+
+Override in `settings/settings.toml`:
+```toml
+[claude]
+cwd = "/absolute/path/to/workspace"
+```
+
+Or via environment:
+```bash
+export CLAUDE8CODE_CWD="/path/to/workspace"
+```
 
 ## Development
 

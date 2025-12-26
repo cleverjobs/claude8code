@@ -1,18 +1,17 @@
 """Unit tests for file storage module."""
 
-import asyncio
 import io
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 
 import pytest
 
 from src.sdk.file_store import (
     MAX_FILE_SIZE,
-    StoredFile,
     FileStore,
+    StoredFile,
     get_file_store,
     init_file_store,
     shutdown_file_store,
@@ -22,7 +21,7 @@ from src.sdk.file_store import (
 class TestStoredFile:
     """Test StoredFile dataclass."""
 
-    def test_to_metadata(self):
+    def test_to_metadata(self) -> None:
         """Test converting StoredFile to FileMetadata."""
         stored = StoredFile(
             id="file_abc123",
@@ -42,7 +41,7 @@ class TestStoredFile:
         assert metadata.downloadable is True
         assert metadata.created_at == "2024-01-15T12:00:00Z"
 
-    def test_to_metadata_with_expires(self):
+    def test_to_metadata_with_expires(self) -> None:
         """Test StoredFile with expiration."""
         stored = StoredFile(
             id="file_xyz789",
@@ -61,22 +60,22 @@ class TestStoredFile:
 class TestFileStoreInit:
     """Test FileStore initialization."""
 
-    def test_creates_storage_directory(self):
+    def test_creates_storage_directory(self) -> None:
         """Test that __post_init__ creates storage directory."""
         with tempfile.TemporaryDirectory() as tmpdir:
             storage_path = Path(tmpdir) / "new_storage" / "nested"
             assert not storage_path.exists()
 
-            store = FileStore(storage_dir=storage_path)
+            _ = FileStore(storage_dir=storage_path)
             assert storage_path.exists()
 
-    def test_default_ttl(self):
+    def test_default_ttl(self) -> None:
         """Test default TTL is 24 hours."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
             assert store.default_ttl_hours == 24
 
-    def test_custom_ttl(self):
+    def test_custom_ttl(self) -> None:
         """Test custom TTL setting."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=48)
@@ -87,7 +86,7 @@ class TestFileStoreLifecycle:
     """Test FileStore start/stop lifecycle."""
 
     @pytest.mark.asyncio
-    async def test_start_creates_cleanup_task(self):
+    async def test_start_creates_cleanup_task(self) -> None:
         """Test start creates background cleanup task."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -100,7 +99,7 @@ class TestFileStoreLifecycle:
             await store.stop()
 
     @pytest.mark.asyncio
-    async def test_stop_cancels_cleanup_task(self):
+    async def test_stop_cancels_cleanup_task(self) -> None:
         """Test stop cancels the cleanup task."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -109,10 +108,11 @@ class TestFileStoreLifecycle:
 
             await store.stop()
             assert store._cleanup_task is None
+            assert task is not None
             assert task.cancelled() or task.done()
 
     @pytest.mark.asyncio
-    async def test_start_idempotent(self):
+    async def test_start_idempotent(self) -> None:
         """Test calling start multiple times is safe."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -125,7 +125,7 @@ class TestFileStoreLifecycle:
             await store.stop()
 
     @pytest.mark.asyncio
-    async def test_stop_idempotent(self):
+    async def test_stop_idempotent(self) -> None:
         """Test calling stop multiple times is safe."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -140,7 +140,7 @@ class TestFileStoreUpload:
     """Test FileStore upload functionality."""
 
     @pytest.mark.asyncio
-    async def test_upload_success(self):
+    async def test_upload_success(self) -> None:
         """Test successful file upload."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -155,20 +155,18 @@ class TestFileStoreUpload:
             assert metadata.mime_type == "text/plain"
 
     @pytest.mark.asyncio
-    async def test_upload_with_content_type(self):
+    async def test_upload_with_content_type(self) -> None:
         """Test upload with explicit content type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
             file = io.BytesIO(b"data")
 
-            metadata = await store.upload(
-                file, "data.bin", content_type="application/octet-stream"
-            )
+            metadata = await store.upload(file, "data.bin", content_type="application/octet-stream")
 
             assert metadata.mime_type == "application/octet-stream"
 
     @pytest.mark.asyncio
-    async def test_upload_guesses_mime_type(self):
+    async def test_upload_guesses_mime_type(self) -> None:
         """Test upload guesses mime type from filename."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -182,7 +180,7 @@ class TestFileStoreUpload:
             assert py_meta.mime_type == "text/x-python"
 
     @pytest.mark.asyncio
-    async def test_upload_unknown_extension(self):
+    async def test_upload_unknown_extension(self) -> None:
         """Test upload with unknown extension defaults to octet-stream."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -192,7 +190,7 @@ class TestFileStoreUpload:
             assert metadata.mime_type == "application/octet-stream"
 
     @pytest.mark.asyncio
-    async def test_upload_size_limit(self):
+    async def test_upload_size_limit(self) -> None:
         """Test upload rejects files exceeding size limit."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -205,7 +203,7 @@ class TestFileStoreUpload:
             assert "exceeds maximum size" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_upload_custom_ttl(self):
+    async def test_upload_custom_ttl(self) -> None:
         """Test upload with custom TTL."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -217,7 +215,7 @@ class TestFileStoreUpload:
             assert store._files[metadata.id].expires_at is not None
 
     @pytest.mark.asyncio
-    async def test_upload_zero_ttl_uses_default(self):
+    async def test_upload_zero_ttl_uses_default(self) -> None:
         """Test upload with TTL=0 uses default (0 is falsy in Python)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=24)
@@ -228,7 +226,7 @@ class TestFileStoreUpload:
             assert store._files[metadata.id].expires_at is not None
 
     @pytest.mark.asyncio
-    async def test_upload_no_ttl_provided_uses_default(self):
+    async def test_upload_no_ttl_provided_uses_default(self) -> None:
         """Test upload without ttl_hours uses default."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=48)
@@ -240,7 +238,7 @@ class TestFileStoreUpload:
             assert stored.expires_at is not None
 
     @pytest.mark.asyncio
-    async def test_upload_writes_to_disk(self):
+    async def test_upload_writes_to_disk(self) -> None:
         """Test upload writes file to disk."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -258,7 +256,7 @@ class TestFileStoreGet:
     """Test FileStore get functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_existing_file(self):
+    async def test_get_existing_file(self) -> None:
         """Test getting existing file metadata."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -271,7 +269,7 @@ class TestFileStoreGet:
             assert result.filename == "test.txt"
 
     @pytest.mark.asyncio
-    async def test_get_nonexistent_file(self):
+    async def test_get_nonexistent_file(self) -> None:
         """Test getting nonexistent file returns None."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -284,7 +282,7 @@ class TestFileStoreGetContent:
     """Test FileStore get_content functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_content_existing(self):
+    async def test_get_content_existing(self) -> None:
         """Test getting content of existing file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -300,7 +298,7 @@ class TestFileStoreGetContent:
             assert mime_type == "text/plain"
 
     @pytest.mark.asyncio
-    async def test_get_content_nonexistent(self):
+    async def test_get_content_nonexistent(self) -> None:
         """Test getting content of nonexistent file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -309,7 +307,7 @@ class TestFileStoreGetContent:
             assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_content_file_deleted_from_disk(self):
+    async def test_get_content_file_deleted_from_disk(self) -> None:
         """Test getting content when file was deleted from disk."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -330,7 +328,7 @@ class TestFileStoreDelete:
     """Test FileStore delete functionality."""
 
     @pytest.mark.asyncio
-    async def test_delete_existing_file(self):
+    async def test_delete_existing_file(self) -> None:
         """Test deleting an existing file."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -344,7 +342,7 @@ class TestFileStoreDelete:
             assert not file_path.exists()
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_file(self):
+    async def test_delete_nonexistent_file(self) -> None:
         """Test deleting nonexistent file returns False."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -353,7 +351,7 @@ class TestFileStoreDelete:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_handles_disk_error(self):
+    async def test_delete_handles_disk_error(self) -> None:
         """Test delete handles disk errors gracefully."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -368,12 +366,27 @@ class TestFileStoreDelete:
             assert result is True
             assert uploaded.id not in store._files
 
+    @pytest.mark.asyncio
+    async def test_delete_handles_permission_error(self) -> None:
+        """Test delete handles permission errors on unlink."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = FileStore(storage_dir=Path(tmpdir))
+            file = io.BytesIO(b"content")
+            uploaded = await store.upload(file, "test.txt")
+
+            # Patch Path.unlink at the module level to raise PermissionError
+            with patch("pathlib.Path.unlink", side_effect=PermissionError("Access denied")):
+                # Should still succeed and log warning
+                result = await store.delete(uploaded.id)
+                assert result is True
+                assert uploaded.id not in store._files
+
 
 class TestFileStoreList:
     """Test FileStore list functionality."""
 
     @pytest.mark.asyncio
-    async def test_list_empty(self):
+    async def test_list_empty(self) -> None:
         """Test listing when no files exist."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -383,7 +396,7 @@ class TestFileStoreList:
             assert has_more is False
 
     @pytest.mark.asyncio
-    async def test_list_all_files(self):
+    async def test_list_all_files(self) -> None:
         """Test listing all files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -397,7 +410,7 @@ class TestFileStoreList:
             assert has_more is False
 
     @pytest.mark.asyncio
-    async def test_list_with_limit(self):
+    async def test_list_with_limit(self) -> None:
         """Test listing with limit."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -411,7 +424,7 @@ class TestFileStoreList:
             assert has_more is True
 
     @pytest.mark.asyncio
-    async def test_list_with_after_id(self):
+    async def test_list_with_after_id(self) -> None:
         """Test listing with after_id cursor."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -434,7 +447,7 @@ class TestFileStoreList:
             assert all(f.id != cursor_id for f in files)
 
     @pytest.mark.asyncio
-    async def test_list_with_before_id(self):
+    async def test_list_with_before_id(self) -> None:
         """Test listing with before_id cursor."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -452,7 +465,7 @@ class TestFileStoreList:
             assert all(f.id != cursor_id for f in files)
 
     @pytest.mark.asyncio
-    async def test_list_cursor_not_found(self):
+    async def test_list_cursor_not_found(self) -> None:
         """Test listing with nonexistent cursor ID."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -468,7 +481,7 @@ class TestFileStoreCleanup:
     """Test FileStore cleanup functionality."""
 
     @pytest.mark.asyncio
-    async def test_cleanup_expired_removes_old_files(self):
+    async def test_cleanup_expired_removes_old_files(self) -> None:
         """Test cleanup removes expired files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=1)
@@ -486,7 +499,7 @@ class TestFileStoreCleanup:
             assert meta.id not in store._files
 
     @pytest.mark.asyncio
-    async def test_cleanup_keeps_valid_files(self):
+    async def test_cleanup_keeps_valid_files(self) -> None:
         """Test cleanup keeps non-expired files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=24)
@@ -501,7 +514,7 @@ class TestFileStoreCleanup:
             assert meta.id in store._files
 
     @pytest.mark.asyncio
-    async def test_cleanup_keeps_non_expired_files(self):
+    async def test_cleanup_keeps_non_expired_files(self) -> None:
         """Test cleanup keeps files that haven't expired yet."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir), default_ttl_hours=24)
@@ -523,7 +536,7 @@ class TestFileStoreStats:
     """Test FileStore statistics."""
 
     @pytest.mark.asyncio
-    async def test_get_stats_empty(self):
+    async def test_get_stats_empty(self) -> None:
         """Test stats with no files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -535,7 +548,7 @@ class TestFileStoreStats:
             assert stats["default_ttl_hours"] == 24
 
     @pytest.mark.asyncio
-    async def test_get_stats_with_files(self):
+    async def test_get_stats_with_files(self) -> None:
         """Test stats with files."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -551,7 +564,7 @@ class TestFileStoreStats:
 class TestFileStoreHelpers:
     """Test FileStore helper methods."""
 
-    def test_generate_id_format(self):
+    def test_generate_id_format(self) -> None:
         """Test ID generation format."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -560,7 +573,7 @@ class TestFileStoreHelpers:
             assert file_id.startswith("file_")
             assert len(file_id) == 29  # "file_" + 24 hex chars
 
-    def test_generate_id_uniqueness(self):
+    def test_generate_id_uniqueness(self) -> None:
         """Test ID generation produces unique IDs."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -568,7 +581,7 @@ class TestFileStoreHelpers:
             ids = [store._generate_id() for _ in range(100)]
             assert len(ids) == len(set(ids))
 
-    def test_guess_mime_type_known(self):
+    def test_guess_mime_type_known(self) -> None:
         """Test MIME type guessing for known extensions."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -578,7 +591,7 @@ class TestFileStoreHelpers:
             assert store._guess_mime_type("file.html") == "text/html"
             assert store._guess_mime_type("file.png") == "image/png"
 
-    def test_guess_mime_type_unknown(self):
+    def test_guess_mime_type_unknown(self) -> None:
         """Test MIME type guessing for unknown extensions."""
         with tempfile.TemporaryDirectory() as tmpdir:
             store = FileStore(storage_dir=Path(tmpdir))
@@ -591,10 +604,11 @@ class TestFileStoreHelpers:
 class TestGlobalFileStore:
     """Test global file store functions."""
 
-    def test_get_file_store_initially_none(self):
+    def test_get_file_store_initially_none(self) -> None:
         """Test get_file_store returns None before init."""
         # Reset global state
         import src.sdk.file_store as module
+
         original = module._file_store
         module._file_store = None
 
@@ -604,10 +618,11 @@ class TestGlobalFileStore:
         finally:
             module._file_store = original
 
-    def test_init_file_store(self):
+    def test_init_file_store(self) -> None:
         """Test init_file_store creates store."""
         with tempfile.TemporaryDirectory() as tmpdir:
             import src.sdk.file_store as module
+
             original = module._file_store
 
             try:
@@ -619,10 +634,11 @@ class TestGlobalFileStore:
                 module._file_store = original
 
     @pytest.mark.asyncio
-    async def test_shutdown_file_store(self):
+    async def test_shutdown_file_store(self) -> None:
         """Test shutdown_file_store cleans up."""
         with tempfile.TemporaryDirectory() as tmpdir:
             import src.sdk.file_store as module
+
             original = module._file_store
 
             try:
@@ -635,9 +651,10 @@ class TestGlobalFileStore:
                 module._file_store = original
 
     @pytest.mark.asyncio
-    async def test_shutdown_file_store_when_none(self):
+    async def test_shutdown_file_store_when_none(self) -> None:
         """Test shutdown_file_store when no store exists."""
         import src.sdk.file_store as module
+
         original = module._file_store
         module._file_store = None
 

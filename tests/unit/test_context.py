@@ -1,22 +1,23 @@
 """Unit tests for request context module."""
 
 import time
+
 import pytest
 
 from src.core.context import (
     RequestContext,
+    RequestContextManager,
     create_context,
-    set_context,
     get_context,
     reset_context,
-    RequestContextManager,
+    set_context,
 )
 
 
 class TestRequestContext:
     """Test RequestContext dataclass."""
 
-    def test_create_with_required_fields(self):
+    def test_create_with_required_fields(self) -> None:
         """Test creating context with only required fields."""
         ctx = RequestContext(
             request_id="req_123",
@@ -31,7 +32,7 @@ class TestRequestContext:
         assert ctx.error is None
         assert ctx.stream is False
 
-    def test_create_with_all_fields(self):
+    def test_create_with_all_fields(self) -> None:
         """Test creating context with all fields."""
         ctx = RequestContext(
             request_id="req_456",
@@ -47,7 +48,7 @@ class TestRequestContext:
         assert ctx.user_agent == "TestClient/1.0"
         assert ctx.client_ip == "127.0.0.1"
 
-    def test_duration_calculation(self):
+    def test_duration_calculation(self) -> None:
         """Test duration properties calculate elapsed time."""
         ctx = RequestContext(
             request_id="req_789",
@@ -59,7 +60,7 @@ class TestRequestContext:
         assert ctx.duration_seconds >= 0.01
         assert ctx.duration_ms >= 10
 
-    def test_total_tokens(self):
+    def test_total_tokens(self) -> None:
         """Test total_tokens property."""
         ctx = RequestContext(
             request_id="req_tok",
@@ -70,7 +71,7 @@ class TestRequestContext:
         )
         assert ctx.total_tokens == 150
 
-    def test_update_tokens(self):
+    def test_update_tokens(self) -> None:
         """Test update_tokens method accumulates."""
         ctx = RequestContext(
             request_id="req_upd",
@@ -85,7 +86,7 @@ class TestRequestContext:
         assert ctx.tokens_in == 15
         assert ctx.tokens_out == 30
 
-    def test_set_error_string(self):
+    def test_set_error_string(self) -> None:
         """Test set_error with string."""
         ctx = RequestContext(
             request_id="req_err",
@@ -95,7 +96,7 @@ class TestRequestContext:
         ctx.set_error("Something went wrong")
         assert ctx.error == "Something went wrong"
 
-    def test_set_error_exception(self):
+    def test_set_error_exception(self) -> None:
         """Test set_error with Exception."""
         ctx = RequestContext(
             request_id="req_exc",
@@ -105,7 +106,7 @@ class TestRequestContext:
         ctx.set_error(ValueError("Invalid input"))
         assert ctx.error == "ValueError: Invalid input"
 
-    def test_to_log_dict(self):
+    def test_to_log_dict(self) -> None:
         """Test to_log_dict returns proper structure."""
         ctx = RequestContext(
             request_id="req_log",
@@ -134,13 +135,13 @@ class TestRequestContext:
 class TestContextFunctions:
     """Test context variable functions."""
 
-    def test_create_context_generates_id(self):
+    def test_create_context_generates_id(self) -> None:
         """Test create_context generates request ID if not provided."""
         ctx = create_context(path="/test", method="GET")
         assert ctx.request_id.startswith("req_")
         assert len(ctx.request_id) == 16  # "req_" + 12 hex chars
 
-    def test_create_context_uses_provided_id(self):
+    def test_create_context_uses_provided_id(self) -> None:
         """Test create_context uses provided request ID."""
         ctx = create_context(
             path="/test",
@@ -149,7 +150,7 @@ class TestContextFunctions:
         )
         assert ctx.request_id == "custom_id_123"
 
-    def test_set_and_get_context(self):
+    def test_set_and_get_context(self) -> None:
         """Test setting and getting context."""
         ctx = create_context(path="/test", method="POST")
         token = set_context(ctx)
@@ -161,10 +162,10 @@ class TestContextFunctions:
         finally:
             reset_context(token)
 
-    def test_get_context_returns_none_when_not_set(self):
+    def test_get_context_returns_none_when_not_set(self) -> None:
         """Test get_context returns None when no context set."""
         # Create a fresh context to ensure clean state
-        ctx = get_context()
+        _ = get_context()
         # May or may not be None depending on test order
         # but shouldn't raise
 
@@ -172,7 +173,7 @@ class TestContextFunctions:
 class TestRequestContextManager:
     """Test RequestContextManager."""
 
-    def test_sync_context_manager(self):
+    def test_sync_context_manager(self) -> None:
         """Test synchronous context manager usage."""
         with RequestContextManager(path="/sync", method="GET") as ctx:
             assert ctx.path == "/sync"
@@ -180,24 +181,24 @@ class TestRequestContextManager:
             retrieved = get_context()
             assert retrieved is ctx
 
-    def test_sync_context_manager_cleans_up(self):
+    def test_sync_context_manager_cleans_up(self) -> None:
         """Test sync context manager resets context on exit."""
-        original = get_context()
+        _ = get_context()  # Capture original state
         with RequestContextManager(path="/cleanup", method="POST"):
             pass
         # Context should be reset (may be None or original)
 
-    def test_sync_context_manager_captures_error(self):
+    def test_sync_context_manager_captures_error(self) -> None:
         """Test sync context manager captures exceptions."""
         try:
-            with RequestContextManager(path="/error", method="POST") as ctx:
+            with RequestContextManager(path="/error", method="POST"):
                 raise ValueError("Test error")
         except ValueError:
             pass
         # Error should have been captured before reset
 
     @pytest.mark.asyncio
-    async def test_async_context_manager(self):
+    async def test_async_context_manager(self) -> None:
         """Test asynchronous context manager usage."""
         async with RequestContextManager(path="/async", method="GET") as ctx:
             assert ctx.path == "/async"
@@ -205,7 +206,7 @@ class TestRequestContextManager:
             assert retrieved is ctx
 
     @pytest.mark.asyncio
-    async def test_async_context_manager_captures_error(self):
+    async def test_async_context_manager_captures_error(self) -> None:
         """Test async context manager captures exceptions."""
         ctx_ref = None
         try:
@@ -216,4 +217,5 @@ class TestRequestContextManager:
             pass
         # Error was captured in the context before it was reset
         assert ctx_ref is not None
+        assert ctx_ref.error is not None
         assert "RuntimeError" in ctx_ref.error

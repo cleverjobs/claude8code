@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 # Try to import tiktoken (optional dependency)
 try:
     import tiktoken
+
     _encoder = tiktoken.get_encoding("cl100k_base")
     TIKTOKEN_AVAILABLE = True
     logger.info("tiktoken loaded successfully - token counting enabled")
 except ImportError:
-    _encoder = None
+    _encoder = None  # type: ignore[assignment]
     TIKTOKEN_AVAILABLE = False
     logger.warning("tiktoken not installed - token counting will return estimates")
 

@@ -28,30 +28,30 @@ async def get_current_time(args: dict[str, Any]) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": timestamp}]}
 
 
-@tool(
-    "list_directory",
-    "List contents of a directory with file metadata",
-    {"path": str}
-)
+@tool("list_directory", "List contents of a directory with file metadata", {"path": str})
 async def list_directory(args: dict[str, Any]) -> dict[str, Any]:
     """List contents of a directory."""
     path = args.get("path", ".")
     try:
         target = Path(path).resolve()
         if not target.exists():
-            return {"content": [{"type": "text", "text": json.dumps({"error": f"Path does not exist: {path}"})}]}
+            err = json.dumps({"error": f"Path does not exist: {path}"})
+            return {"content": [{"type": "text", "text": err}]}
         if not target.is_dir():
-            return {"content": [{"type": "text", "text": json.dumps({"error": f"Not a directory: {path}"})}]}
+            error_msg = json.dumps({"error": f"Not a directory: {path}"})
+            return {"content": [{"type": "text", "text": error_msg}]}
 
         entries = []
         for entry in target.iterdir():
             stat = entry.stat()
-            entries.append({
-                "name": entry.name,
-                "type": "directory" if entry.is_dir() else "file",
-                "size": stat.st_size if entry.is_file() else None,
-                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            })
+            entries.append(
+                {
+                    "name": entry.name,
+                    "type": "directory" if entry.is_dir() else "file",
+                    "size": stat.st_size if entry.is_file() else None,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                }
+            )
 
         result = {
             "path": str(target),
@@ -59,7 +59,8 @@ async def list_directory(args: dict[str, Any]) -> dict[str, Any]:
         }
         return {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
     except PermissionError:
-        return {"content": [{"type": "text", "text": json.dumps({"error": f"Permission denied: {path}"})}]}
+        err = json.dumps({"error": f"Permission denied: {path}"})
+        return {"content": [{"type": "text", "text": err}]}
     except Exception as e:
         return {"content": [{"type": "text", "text": json.dumps({"error": str(e)})}]}
 
@@ -67,7 +68,7 @@ async def list_directory(args: dict[str, Any]) -> dict[str, Any]:
 @tool(
     "read_file_preview",
     "Read a preview of a file's contents (first N lines)",
-    {"path": str, "max_lines": int}
+    {"path": str, "max_lines": int},
 )
 async def read_file_preview(args: dict[str, Any]) -> dict[str, Any]:
     """Read a preview of a file's contents."""
@@ -76,9 +77,11 @@ async def read_file_preview(args: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(path).resolve()
         if not target.exists():
-            return {"content": [{"type": "text", "text": json.dumps({"error": f"File does not exist: {path}"})}]}
+            err = json.dumps({"error": f"File does not exist: {path}"})
+            return {"content": [{"type": "text", "text": err}]}
         if not target.is_file():
-            return {"content": [{"type": "text", "text": json.dumps({"error": f"Not a file: {path}"})}]}
+            err = json.dumps({"error": f"Not a file: {path}"})
+            return {"content": [{"type": "text", "text": err}]}
 
         with open(target, "r", encoding="utf-8", errors="replace") as f:
             lines = f.readlines()
@@ -96,7 +99,8 @@ async def read_file_preview(args: dict[str, Any]) -> dict[str, Any]:
         }
         return {"content": [{"type": "text", "text": json.dumps(result)}]}
     except PermissionError:
-        return {"content": [{"type": "text", "text": json.dumps({"error": f"Permission denied: {path}"})}]}
+        err = json.dumps({"error": f"Permission denied: {path}"})
+        return {"content": [{"type": "text", "text": err}]}
     except Exception as e:
         return {"content": [{"type": "text", "text": json.dumps({"error": str(e)})}]}
 
@@ -120,7 +124,7 @@ async def get_env_info(args: dict[str, Any]) -> dict[str, Any]:
 @tool(
     "search_files",
     "Search for files matching a glob pattern",
-    {"pattern": str, "path": str, "max_results": int}
+    {"pattern": str, "path": str, "max_results": int},
 )
 async def search_files(args: dict[str, Any]) -> dict[str, Any]:
     """Search for files matching a glob pattern."""
@@ -130,7 +134,8 @@ async def search_files(args: dict[str, Any]) -> dict[str, Any]:
     try:
         base = Path(path).resolve()
         if not base.exists():
-            return {"content": [{"type": "text", "text": json.dumps({"error": f"Path does not exist: {path}"})}]}
+            err = json.dumps({"error": f"Path does not exist: {path}"})
+            return {"content": [{"type": "text", "text": err}]}
 
         matches = list(base.glob(pattern))[:max_results]
 
@@ -155,7 +160,7 @@ _CUSTOM_TOOLS = [
 ]
 
 
-def get_custom_tools() -> list:
+def get_custom_tools() -> list[Any]:
     """
     Get list of custom MCP tools to register with Claude Agent SDK.
 
@@ -175,11 +180,11 @@ def get_tool_names() -> list[str]:
     return [t.name for t in _CUSTOM_TOOLS]
 
 
-def create_tools_server():
+def create_tools_server() -> Any:
     """
     Create an SDK MCP server with all custom tools.
 
     Returns:
         MCP server instance ready for use with ClaudeAgentOptions.
     """
-    return create_sdk_mcp_server("claude8code_tools", _CUSTOM_TOOLS)
+    return create_sdk_mcp_server("claude8code_tools", _CUSTOM_TOOLS)  # type: ignore[arg-type]

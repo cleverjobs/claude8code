@@ -10,8 +10,10 @@ This module creates and configures the FastAPI application with:
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,7 +41,7 @@ logger = logging.getLogger("claude8code")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan handler."""
     # Initialize metrics
     init_app_info(version="0.1.0")
@@ -102,7 +104,7 @@ def create_app() -> FastAPI:
     # ============================================================================
 
     @app.get("/")
-    async def root():
+    async def root() -> dict[str, Any]:
         """Root endpoint with server info."""
         return {
             "name": "claude8code",
@@ -127,12 +129,12 @@ def create_app() -> FastAPI:
         }
 
     @app.get("/health")
-    async def health():
+    async def health() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
 
     @app.get("/metrics")
-    async def metrics():
+    async def metrics() -> Response:
         """Prometheus metrics endpoint."""
         return Response(
             content=get_metrics(),
@@ -167,7 +169,7 @@ def create_app() -> FastAPI:
         return status_to_error.get(status_code, ErrorType.API.value)
 
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(request: Request, exc: HTTPException):
+    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
         """Handle HTTP exceptions in Anthropic error format."""
         # If detail is already in our format, return it
         if isinstance(exc.detail, dict):
@@ -188,7 +190,7 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(ValueError)
-    async def validation_exception_handler(request: Request, exc: ValueError):
+    async def validation_exception_handler(request: Request, exc: ValueError) -> JSONResponse:
         """Handle validation errors as invalid_request_error."""
         logger.warning(f"Validation error: {exc}")
         return JSONResponse(
@@ -203,7 +205,7 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(Exception)
-    async def general_exception_handler(request: Request, exc: Exception):
+    async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Handle unexpected exceptions as api_error."""
         logger.exception("Unhandled exception")
         return JSONResponse(

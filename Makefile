@@ -5,6 +5,7 @@
 #   make install      - Install dependencies
 #   make run          - Run development server
 #   make test         - Run all tests
+#   make check        - Run pre-commit checks
 #   make lint         - Run linting
 #   make format       - Format code
 #
@@ -21,7 +22,7 @@
 #   make release VERSION=x.y.z - Create a new release
 # ==============================================================================
 
-.PHONY: install run test test-unit test-integration coverage lint format \
+.PHONY: install run test test-unit test-integration coverage check lint format \
         build push up down logs clean up-monitoring help release
 
 DOCKER_HUB_USER := krisjobs
@@ -75,16 +76,20 @@ coverage:
 # Code Quality
 # ------------------------------------------------------------------------------
 
+check:
+	@echo "Running all pre-commit checks..."
+	uv run pre-commit run --all-files
+
 lint:
 	@echo "Running linter..."
-	ruff check src/ tests/
+	uv run ruff check src/ tests/
 	@echo "Running type checker..."
-	mypy src/ --ignore-missing-imports
+	uv run mypy src/ tests/
 
 format:
 	@echo "Formatting code..."
-	ruff format src/ tests/
-	ruff check --fix src/ tests/
+	uv run ruff format src/ tests/
+	uv run ruff check --fix src/ tests/
 
 # ------------------------------------------------------------------------------
 # Docker Operations
@@ -175,6 +180,7 @@ help:
 	@echo "  make coverage        - Run tests with coverage report"
 	@echo ""
 	@echo "Code Quality:"
+	@echo "  make check           - Run all pre-commit checks (ruff + mypy)"
 	@echo "  make lint            - Run ruff and mypy"
 	@echo "  make format          - Format code with ruff"
 	@echo ""

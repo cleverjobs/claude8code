@@ -1,36 +1,33 @@
 """Tests for claude8code models and configuration."""
 
-import pytest
+from src.core import Settings
 from src.models import (
+    ContentBlockText,
+    Message,
     MessagesRequest,
     MessagesResponse,
-    Message,
-    ContentBlockText,
     TextBlock,
     Usage,
 )
-from src.core import Settings
 
 
 class TestModels:
     """Test Pydantic models match Anthropic's schema."""
-    
-    def test_simple_message_request(self):
+
+    def test_simple_message_request(self) -> None:
         """Test basic message request parsing."""
         request = MessagesRequest(
             model="claude-sonnet-4-5-20250514",
             max_tokens=1024,
-            messages=[
-                Message(role="user", content="Hello!")
-            ]
+            messages=[Message(role="user", content="Hello!")],
         )
         assert request.model == "claude-sonnet-4-5-20250514"
         assert request.max_tokens == 1024
         assert len(request.messages) == 1
         assert request.messages[0].role == "user"
         assert request.messages[0].content == "Hello!"
-    
-    def test_message_with_content_blocks(self):
+
+    def test_message_with_content_blocks(self) -> None:
         """Test message with content block array."""
         request = MessagesRequest(
             model="claude-sonnet-4-5-20250514",
@@ -41,44 +38,42 @@ class TestModels:
                     content=[
                         ContentBlockText(text="Part 1"),
                         ContentBlockText(text="Part 2"),
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
         assert len(request.messages[0].content) == 2
-    
-    def test_message_with_system_prompt(self):
+
+    def test_message_with_system_prompt(self) -> None:
         """Test request with system prompt."""
         request = MessagesRequest(
             model="claude-sonnet-4-5-20250514",
             max_tokens=1024,
             system="You are a helpful assistant",
-            messages=[
-                Message(role="user", content="Hi")
-            ]
+            messages=[Message(role="user", content="Hi")],
         )
         assert request.system == "You are a helpful assistant"
-    
-    def test_streaming_flag(self):
+
+    def test_streaming_flag(self) -> None:
         """Test stream flag defaults and parsing."""
         # Default is False
         request = MessagesRequest(
             model="claude-sonnet-4-5-20250514",
             max_tokens=1024,
-            messages=[Message(role="user", content="Hi")]
+            messages=[Message(role="user", content="Hi")],
         )
         assert request.stream is False
-        
+
         # Explicit True
         request = MessagesRequest(
             model="claude-sonnet-4-5-20250514",
             max_tokens=1024,
             stream=True,
-            messages=[Message(role="user", content="Hi")]
+            messages=[Message(role="user", content="Hi")],
         )
         assert request.stream is True
-    
-    def test_response_structure(self):
+
+    def test_response_structure(self) -> None:
         """Test response model structure."""
         response = MessagesResponse(
             id="msg_test123",
@@ -91,7 +86,9 @@ class TestModels:
         assert response.type == "message"
         assert response.role == "assistant"
         assert len(response.content) == 1
-        assert response.content[0].text == "Hello!"
+        first_block = response.content[0]
+        assert first_block.type == "text"
+        assert first_block.text == "Hello!"
         assert response.stop_reason == "end_turn"
         assert response.usage.input_tokens == 10
         assert response.usage.output_tokens == 5
@@ -100,7 +97,7 @@ class TestModels:
 class TestConfig:
     """Test configuration loading."""
 
-    def test_default_settings(self):
+    def test_default_settings(self) -> None:
         """Test default configuration values."""
         settings = Settings()
         assert settings.host == "0.0.0.0"
@@ -109,13 +106,13 @@ class TestConfig:
         assert settings.max_turns == 10
         assert settings.permission_mode == "acceptEdits"
 
-    def test_allowed_tools_empty_returns_none(self):
+    def test_allowed_tools_empty_returns_none(self) -> None:
         """Test empty allowed_tools returns None (all tools allowed)."""
         settings = Settings()
         # Default has no allowed tools specified, so returns None
         assert settings.get_allowed_tools_list() is None
 
-    def test_setting_sources_default(self):
+    def test_setting_sources_default(self) -> None:
         """Test default setting sources."""
         settings = Settings()
         sources = settings.get_setting_sources_list()
@@ -123,7 +120,7 @@ class TestConfig:
         assert "user" in sources
         assert "project" in sources
 
-    def test_cors_origins_default(self):
+    def test_cors_origins_default(self) -> None:
         """Test default CORS origins."""
         settings = Settings()
         origins = settings.get_cors_origins_list()

@@ -9,7 +9,7 @@ import uvicorn
 from src.core import settings
 
 
-def main():
+def main() -> None:
     """Run the claude8code server."""
     parser = argparse.ArgumentParser(
         description="claude8code - Anthropic-compatible API powered by Claude Agent SDK",

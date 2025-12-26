@@ -3,27 +3,28 @@
 import asyncio
 import json
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.sdk.batch_processor import (
-    MAX_BATCH_SIZE,
-    DEFAULT_CONCURRENCY,
-    StoredBatch,
-    BatchProcessor,
-    get_batch_processor,
-    init_batch_processor,
-    shutdown_batch_processor,
-)
 from src.models.batches import (
     BatchRequest,
     BatchRequestParams,
     BatchResultLine,
-    SucceededResult,
-    ErroredResult,
     CanceledResult,
+    ErroredResult,
     ExpiredResult,
+    SucceededResult,
+)
+from src.sdk.batch_processor import (
+    DEFAULT_CONCURRENCY,
+    MAX_BATCH_SIZE,
+    BatchProcessor,
+    StoredBatch,
+    get_batch_processor,
+    init_batch_processor,
+    shutdown_batch_processor,
 )
 
 
@@ -42,7 +43,7 @@ def create_batch_request(custom_id: str, content: str = "Hello") -> BatchRequest
 class TestStoredBatch:
     """Test StoredBatch dataclass."""
 
-    def test_get_request_counts_initial(self):
+    def test_get_request_counts_initial(self) -> None:
         """Test request counts for new batch."""
         batch = StoredBatch(
             id="msgbatch_test",
@@ -58,7 +59,7 @@ class TestStoredBatch:
         assert counts.canceled == 0
         assert counts.expired == 0
 
-    def test_get_request_counts_mixed(self):
+    def test_get_request_counts_mixed(self) -> None:
         """Test request counts with mixed results."""
         batch = StoredBatch(
             id="msgbatch_test",
@@ -79,9 +80,7 @@ class TestStoredBatch:
         batch.results["req2"] = BatchResultLine(
             custom_id="req2", result=ErroredResult(error={"type": "error"})
         )
-        batch.results["req3"] = BatchResultLine(
-            custom_id="req3", result=CanceledResult()
-        )
+        batch.results["req3"] = BatchResultLine(custom_id="req3", result=CanceledResult())
 
         counts = batch.get_request_counts()
         assert counts.processing == 1  # req4 still processing
@@ -90,7 +89,7 @@ class TestStoredBatch:
         assert counts.canceled == 1
         assert counts.expired == 0
 
-    def test_get_request_counts_with_expired(self):
+    def test_get_request_counts_with_expired(self) -> None:
         """Test request counts with expired result."""
         batch = StoredBatch(
             id="msgbatch_test",
@@ -99,15 +98,13 @@ class TestStoredBatch:
             expires_at=datetime.utcnow() + timedelta(days=29),
         )
 
-        batch.results["req1"] = BatchResultLine(
-            custom_id="req1", result=ExpiredResult()
-        )
+        batch.results["req1"] = BatchResultLine(custom_id="req1", result=ExpiredResult())
 
         counts = batch.get_request_counts()
         assert counts.expired == 1
         assert counts.processing == 0
 
-    def test_to_api_response_in_progress(self):
+    def test_to_api_response_in_progress(self) -> None:
         """Test API response for in-progress batch."""
         batch = StoredBatch(
             id="msgbatch_abc123",
@@ -126,7 +123,7 @@ class TestStoredBatch:
         assert response.ended_at is None
         assert response.results_url is None
 
-    def test_to_api_response_ended(self):
+    def test_to_api_response_ended(self) -> None:
         """Test API response for ended batch with results URL."""
         batch = StoredBatch(
             id="msgbatch_xyz789",
@@ -143,9 +140,12 @@ class TestStoredBatch:
         response = batch.to_api_response(base_url="http://localhost:8787")
         assert response.processing_status == "ended"
         assert response.ended_at == "2024-01-15T12:05:00Z"
-        assert response.results_url == "http://localhost:8787/v1/messages/batches/msgbatch_xyz789/results"
+        assert (
+            response.results_url
+            == "http://localhost:8787/v1/messages/batches/msgbatch_xyz789/results"
+        )
 
-    def test_to_api_response_canceling(self):
+    def test_to_api_response_canceling(self) -> None:
         """Test API response for canceling batch."""
         batch = StoredBatch(
             id="msgbatch_cancel",
@@ -160,7 +160,7 @@ class TestStoredBatch:
         assert response.processing_status == "canceling"
         assert response.cancel_initiated_at == "2024-01-15T12:02:00Z"
 
-    def test_to_api_response_archived(self):
+    def test_to_api_response_archived(self) -> None:
         """Test API response for archived batch."""
         batch = StoredBatch(
             id="msgbatch_archived",
@@ -179,17 +179,17 @@ class TestStoredBatch:
 class TestBatchProcessorInit:
     """Test BatchProcessor initialization."""
 
-    def test_default_concurrency(self):
+    def test_default_concurrency(self) -> None:
         """Test default concurrency setting."""
         processor = BatchProcessor()
         assert processor.concurrency == DEFAULT_CONCURRENCY
 
-    def test_custom_concurrency(self):
+    def test_custom_concurrency(self) -> None:
         """Test custom concurrency setting."""
         processor = BatchProcessor(concurrency=10)
         assert processor.concurrency == 10
 
-    def test_set_request_processor(self):
+    def test_set_request_processor(self) -> None:
         """Test setting request processor function."""
         processor = BatchProcessor()
         mock_fn = AsyncMock()
@@ -201,7 +201,7 @@ class TestBatchProcessorInit:
 class TestBatchProcessorIdGeneration:
     """Test BatchProcessor ID generation."""
 
-    def test_generate_id_format(self):
+    def test_generate_id_format(self) -> None:
         """Test batch ID format."""
         processor = BatchProcessor()
 
@@ -209,7 +209,7 @@ class TestBatchProcessorIdGeneration:
         assert batch_id.startswith("msgbatch_")
         assert len(batch_id) == 33  # "msgbatch_" + 24 hex chars
 
-    def test_generate_id_uniqueness(self):
+    def test_generate_id_uniqueness(self) -> None:
         """Test batch ID uniqueness."""
         processor = BatchProcessor()
 
@@ -221,12 +221,12 @@ class TestBatchProcessorCreateBatch:
     """Test BatchProcessor create_batch functionality."""
 
     @pytest.mark.asyncio
-    async def test_create_batch_success(self):
+    async def test_create_batch_success(self) -> None:
         """Test successful batch creation."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123", "content": []}
-        ))
+        mock_process = AsyncMock(
+            return_value=MagicMock(model_dump=lambda: {"id": "msg_123", "content": []})
+        )
         processor.set_request_processor(mock_process)
 
         requests = [create_batch_request("req1")]
@@ -240,7 +240,7 @@ class TestBatchProcessorCreateBatch:
         await asyncio.sleep(0.1)
 
     @pytest.mark.asyncio
-    async def test_create_batch_size_limit(self):
+    async def test_create_batch_size_limit(self) -> None:
         """Test batch rejects too many requests."""
         processor = BatchProcessor()
 
@@ -251,12 +251,12 @@ class TestBatchProcessorCreateBatch:
         assert f"exceeds maximum size of {MAX_BATCH_SIZE}" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_create_batch_starts_processing(self):
+    async def test_create_batch_starts_processing(self) -> None:
         """Test batch processing starts automatically."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123", "content": []}
-        ))
+        mock_process = AsyncMock(
+            return_value=MagicMock(model_dump=lambda: {"id": "msg_123", "content": []})
+        )
         processor.set_request_processor(mock_process)
 
         requests = [create_batch_request("req1")]
@@ -275,11 +275,14 @@ class TestBatchProcessorProcessing:
     """Test BatchProcessor request processing."""
 
     @pytest.mark.asyncio
-    async def test_process_batch_success(self):
+    async def test_process_batch_success(self) -> None:
         """Test successful batch processing."""
         processor = BatchProcessor()
         mock_response = MagicMock()
-        mock_response.model_dump.return_value = {"id": "msg_123", "content": [{"type": "text", "text": "Hi"}]}
+        mock_response.model_dump.return_value = {
+            "id": "msg_123",
+            "content": [{"type": "text", "text": "Hi"}],
+        }
         mock_process = AsyncMock(return_value=mock_response)
         processor.set_request_processor(mock_process)
 
@@ -298,12 +301,13 @@ class TestBatchProcessorProcessing:
         assert all(r.result.type == "succeeded" for r in stored.results.values())
 
     @pytest.mark.asyncio
-    async def test_process_batch_with_errors(self):
+    async def test_process_batch_with_errors(self) -> None:
         """Test batch processing with request errors."""
         processor = BatchProcessor()
 
         call_count = 0
-        async def mock_process(request):
+
+        async def mock_process(request: Any) -> Any:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
@@ -333,7 +337,7 @@ class TestBatchProcessorProcessing:
         assert success_count == 1
 
     @pytest.mark.asyncio
-    async def test_execute_request_no_processor(self):
+    async def test_execute_request_no_processor(self) -> None:
         """Test execute request fails without processor."""
         processor = BatchProcessor()
 
@@ -344,14 +348,14 @@ class TestBatchProcessorProcessing:
         assert "Request processor not configured" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_process_batch_respects_concurrency(self):
+    async def test_process_batch_respects_concurrency(self) -> None:
         """Test batch processing respects concurrency limit."""
         processor = BatchProcessor(concurrency=2)
 
         concurrent_calls = []
         max_concurrent = 0
 
-        async def mock_process(request):
+        async def mock_process(request: Any) -> Any:
             nonlocal max_concurrent
             concurrent_calls.append(1)
             current = len(concurrent_calls)
@@ -382,12 +386,12 @@ class TestBatchProcessorCancel:
     """Test BatchProcessor cancellation."""
 
     @pytest.mark.asyncio
-    async def test_cancel_batch_in_progress(self):
+    async def test_cancel_batch_in_progress(self) -> None:
         """Test canceling an in-progress batch."""
         processor = BatchProcessor()
 
         # Slow processor to keep batch processing
-        async def slow_process(request):
+        async def slow_process(request: Any) -> Any:
             await asyncio.sleep(10)
             mock_response = MagicMock()
             mock_response.model_dump.return_value = {"id": "msg_123"}
@@ -410,7 +414,48 @@ class TestBatchProcessorCancel:
         assert stored._canceled is True
 
     @pytest.mark.asyncio
-    async def test_cancel_batch_not_found(self):
+    async def test_cancel_batch_marks_remaining_canceled(self) -> None:
+        """Test that canceling a batch marks remaining requests as canceled."""
+        # Use concurrency=1 to ensure sequential processing
+        processor = BatchProcessor(concurrency=1)
+        processed_count = 0
+        should_cancel = asyncio.Event()
+
+        async def slow_process_with_signal(request: Any) -> Any:
+            nonlocal processed_count
+            processed_count += 1
+            if processed_count == 1:
+                # Signal that first request is processing
+                should_cancel.set()
+                # Give time for cancel to happen before completing
+                await asyncio.sleep(0.3)
+            mock_response = MagicMock()
+            mock_response.model_dump.return_value = {"id": f"msg_{processed_count}"}
+            return mock_response
+
+        processor.set_request_processor(slow_process_with_signal)
+
+        # Create batch with multiple requests
+        requests = [
+            create_batch_request("req1"),
+            create_batch_request("req2"),
+            create_batch_request("req3"),
+        ]
+        batch = await processor.create_batch(requests)
+
+        # Wait for first request to start processing, then cancel
+        await asyncio.wait_for(should_cancel.wait(), timeout=2.0)
+        await processor.cancel_batch(batch.id)
+
+        # Wait for processing to complete
+        await asyncio.sleep(0.5)
+
+        # Check that batch has results (may have canceled ones)
+        stored = processor._batches[batch.id]
+        assert len(stored.results) > 0
+
+    @pytest.mark.asyncio
+    async def test_cancel_batch_not_found(self) -> None:
         """Test canceling nonexistent batch."""
         processor = BatchProcessor()
 
@@ -418,12 +463,10 @@ class TestBatchProcessorCancel:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_cancel_batch_already_ended(self):
+    async def test_cancel_batch_already_ended(self) -> None:
         """Test canceling already ended batch returns as-is."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         requests = [create_batch_request("req1")]
@@ -434,6 +477,7 @@ class TestBatchProcessorCancel:
 
         # Try to cancel ended batch
         result = await processor.cancel_batch(batch.id)
+        assert result is not None
         assert result.processing_status == "ended"
 
 
@@ -441,12 +485,10 @@ class TestBatchProcessorDelete:
     """Test BatchProcessor delete functionality."""
 
     @pytest.mark.asyncio
-    async def test_delete_batch_success(self):
+    async def test_delete_batch_success(self) -> None:
         """Test deleting an ended batch."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         requests = [create_batch_request("req1")]
@@ -460,7 +502,7 @@ class TestBatchProcessorDelete:
         assert batch.id not in processor._batches
 
     @pytest.mark.asyncio
-    async def test_delete_batch_not_found(self):
+    async def test_delete_batch_not_found(self) -> None:
         """Test deleting nonexistent batch."""
         processor = BatchProcessor()
 
@@ -468,11 +510,11 @@ class TestBatchProcessorDelete:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_delete_batch_not_ended(self):
+    async def test_delete_batch_not_ended(self) -> None:
         """Test deleting batch that is still processing."""
         processor = BatchProcessor()
 
-        async def slow_process(request):
+        async def slow_process(request: Any) -> Any:
             await asyncio.sleep(10)
             mock_response = MagicMock()
             mock_response.model_dump.return_value = {"id": "msg_123"}
@@ -492,12 +534,10 @@ class TestBatchProcessorGetBatch:
     """Test BatchProcessor get_batch functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_batch_found(self):
+    async def test_get_batch_found(self) -> None:
         """Test getting existing batch."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         requests = [create_batch_request("req1")]
@@ -508,7 +548,7 @@ class TestBatchProcessorGetBatch:
         assert result.id == created.id
 
     @pytest.mark.asyncio
-    async def test_get_batch_not_found(self):
+    async def test_get_batch_not_found(self) -> None:
         """Test getting nonexistent batch."""
         processor = BatchProcessor()
 
@@ -520,7 +560,7 @@ class TestBatchProcessorListBatches:
     """Test BatchProcessor list_batches functionality."""
 
     @pytest.mark.asyncio
-    async def test_list_batches_empty(self):
+    async def test_list_batches_empty(self) -> None:
         """Test listing when no batches exist."""
         processor = BatchProcessor()
 
@@ -529,12 +569,10 @@ class TestBatchProcessorListBatches:
         assert has_more is False
 
     @pytest.mark.asyncio
-    async def test_list_batches_all(self):
+    async def test_list_batches_all(self) -> None:
         """Test listing all batches."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         # Create multiple batches
@@ -549,12 +587,10 @@ class TestBatchProcessorListBatches:
         assert has_more is False
 
     @pytest.mark.asyncio
-    async def test_list_batches_with_limit(self):
+    async def test_list_batches_with_limit(self) -> None:
         """Test listing with limit."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         for i in range(5):
@@ -567,12 +603,10 @@ class TestBatchProcessorListBatches:
         assert has_more is True
 
     @pytest.mark.asyncio
-    async def test_list_batches_pagination(self):
+    async def test_list_batches_pagination(self) -> None:
         """Test listing with pagination cursors."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         for i in range(3):
@@ -589,17 +623,38 @@ class TestBatchProcessorListBatches:
         assert len(after_batches) <= 2
         assert all(b.id != cursor_id for b in after_batches)
 
+    @pytest.mark.asyncio
+    async def test_list_batches_before_id(self) -> None:
+        """Test listing with before_id cursor."""
+        processor = BatchProcessor()
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
+        processor.set_request_processor(mock_process)
+
+        for i in range(3):
+            await processor.create_batch([create_batch_request(f"req{i}")])
+
+        await asyncio.sleep(0.2)
+
+        all_batches, _ = await processor.list_batches(limit=10)
+
+        # Get batches before the last one
+        cursor_id = all_batches[-1].id
+        before_batches, _ = await processor.list_batches(before_id=cursor_id)
+
+        assert len(before_batches) <= 2
+        assert all(b.id != cursor_id for b in before_batches)
+
 
 class TestBatchProcessorGetResults:
     """Test BatchProcessor get_results functionality."""
 
     @pytest.mark.asyncio
-    async def test_get_results_success(self):
+    async def test_get_results_success(self) -> None:
         """Test streaming results for ended batch."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123", "content": []}
-        ))
+        mock_process = AsyncMock(
+            return_value=MagicMock(model_dump=lambda: {"id": "msg_123", "content": []})
+        )
         processor.set_request_processor(mock_process)
 
         requests = [
@@ -620,7 +675,7 @@ class TestBatchProcessorGetResults:
         assert all("result" in r for r in results)
 
     @pytest.mark.asyncio
-    async def test_get_results_not_found(self):
+    async def test_get_results_not_found(self) -> None:
         """Test streaming results for nonexistent batch."""
         processor = BatchProcessor()
 
@@ -630,11 +685,11 @@ class TestBatchProcessorGetResults:
         assert "not found" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_get_results_not_ended(self):
+    async def test_get_results_not_ended(self) -> None:
         """Test streaming results for batch still processing."""
         processor = BatchProcessor()
 
-        async def slow_process(request):
+        async def slow_process(request: Any) -> Any:
             await asyncio.sleep(10)
             mock_response = MagicMock()
             mock_response.model_dump.return_value = {"id": "msg_123"}
@@ -655,7 +710,7 @@ class TestBatchProcessorStats:
     """Test BatchProcessor statistics."""
 
     @pytest.mark.asyncio
-    async def test_get_stats_empty(self):
+    async def test_get_stats_empty(self) -> None:
         """Test stats with no batches."""
         processor = BatchProcessor()
 
@@ -666,12 +721,10 @@ class TestBatchProcessorStats:
         assert "status_counts" in stats
 
     @pytest.mark.asyncio
-    async def test_get_stats_with_batches(self):
+    async def test_get_stats_with_batches(self) -> None:
         """Test stats with batches."""
         processor = BatchProcessor()
-        mock_process = AsyncMock(return_value=MagicMock(
-            model_dump=lambda: {"id": "msg_123"}
-        ))
+        mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
         processor.set_request_processor(mock_process)
 
         for i in range(3):
@@ -687,9 +740,10 @@ class TestBatchProcessorStats:
 class TestGlobalBatchProcessor:
     """Test global batch processor functions."""
 
-    def test_get_batch_processor_initially_none(self):
+    def test_get_batch_processor_initially_none(self) -> None:
         """Test get_batch_processor returns None before init."""
         import src.sdk.batch_processor as module
+
         original = module._batch_processor
         module._batch_processor = None
 
@@ -699,9 +753,10 @@ class TestGlobalBatchProcessor:
         finally:
             module._batch_processor = original
 
-    def test_init_batch_processor(self):
+    def test_init_batch_processor(self) -> None:
         """Test init_batch_processor creates processor."""
         import src.sdk.batch_processor as module
+
         original = module._batch_processor
 
         try:
@@ -716,16 +771,15 @@ class TestGlobalBatchProcessor:
             module._batch_processor = original
 
     @pytest.mark.asyncio
-    async def test_shutdown_batch_processor(self):
+    async def test_shutdown_batch_processor(self) -> None:
         """Test shutdown_batch_processor cleans up."""
         import src.sdk.batch_processor as module
+
         original = module._batch_processor
 
         try:
             processor = init_batch_processor()
-            mock_process = AsyncMock(return_value=MagicMock(
-                model_dump=lambda: {"id": "msg_123"}
-            ))
+            mock_process = AsyncMock(return_value=MagicMock(model_dump=lambda: {"id": "msg_123"}))
             processor.set_request_processor(mock_process)
 
             # Create a batch
@@ -738,9 +792,10 @@ class TestGlobalBatchProcessor:
             module._batch_processor = original
 
     @pytest.mark.asyncio
-    async def test_shutdown_batch_processor_when_none(self):
+    async def test_shutdown_batch_processor_when_none(self) -> None:
         """Test shutdown_batch_processor when no processor exists."""
         import src.sdk.batch_processor as module
+
         original = module._batch_processor
         module._batch_processor = None
 
@@ -750,9 +805,10 @@ class TestGlobalBatchProcessor:
             module._batch_processor = original
 
     @pytest.mark.asyncio
-    async def test_shutdown_cancels_running_batches(self):
+    async def test_shutdown_cancels_running_batches(self) -> None:
         """Test shutdown cancels running batch tasks."""
         import src.sdk.batch_processor as module
+
         original = module._batch_processor
 
         try:
@@ -760,7 +816,7 @@ class TestGlobalBatchProcessor:
 
             processing_started = asyncio.Event()
 
-            async def slow_process(request):
+            async def slow_process(request: Any) -> Any:
                 processing_started.set()
                 await asyncio.sleep(10)
                 mock_response = MagicMock()
@@ -781,6 +837,7 @@ class TestGlobalBatchProcessor:
             await asyncio.sleep(0.1)
 
             # Task should be cancelled or done
+            assert task is not None
             assert task.cancelled() or task.done()
         finally:
             module._batch_processor = original

@@ -1,13 +1,6 @@
 """Sample response data for testing."""
 
-from src.models import (
-    MessagesResponse,
-    Usage,
-    TextBlock,
-    ThinkingBlock,
-    ToolUseResponseBlock,
-)
-
+from typing import Any
 
 # Simple text response
 SIMPLE_RESPONSE = {
@@ -88,7 +81,7 @@ def make_response(
     input_tokens: int = 10,
     output_tokens: int = 15,
     stop_reason: str = "end_turn",
-) -> dict:
+) -> dict[str, Any]:
     """Create a simple message response.
 
     Args:

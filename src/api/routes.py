@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, AsyncIterator, Optional
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import Response
@@ -86,7 +86,7 @@ api_router = APIRouter()
 
 
 @api_router.get("/health")
-async def router_health():
+async def router_health() -> dict[str, str]:
     """Health check endpoint (available at both /health and /sdk/health)."""
     return {"status": "healthy", "timestamp": datetime.utcnow().isoformat(), "mode": "sdk"}
 
@@ -98,7 +98,7 @@ async def list_models(
     limit: int = Query(20, ge=1, le=1000, description="Maximum number of models to return"),
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> ModelsListResponse:
     """List available models (Anthropic format).
 
     Supports pagination via after_id, before_id, and limit parameters.
@@ -165,7 +165,7 @@ async def get_model(
     model_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> ModelInfo:
     """Get information about a specific model.
 
     Supports alias resolution (e.g., claude-opus-4-5 -> claude-opus-4-5-20251101).
@@ -205,7 +205,7 @@ async def count_tokens(
     request: CountTokensRequest,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> CountTokensResponse:
     """Count tokens in a message request without sending it.
 
     This endpoint counts the number of input tokens that would be used
@@ -258,7 +258,7 @@ async def create_message(
     request: MessagesRequest,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Create a message (Anthropic Messages API compatible).
 
     This endpoint accepts requests in Anthropic's format and routes them
@@ -322,10 +322,10 @@ async def create_message(
         )
 
 
-async def handle_streaming_request(request: MessagesRequest):
+async def handle_streaming_request(request: MessagesRequest) -> EventSourceResponse:
     """Handle a streaming request, returning SSE events."""
 
-    async def event_generator():
+    async def event_generator() -> AsyncIterator[dict[str, str]]:
         try:
             async for event in process_request_streaming(request):
                 event_data = event.model_dump()
@@ -354,8 +354,9 @@ async def handle_streaming_request(request: MessagesRequest):
 # Extended API (claude8code-specific)
 # ============================================================================
 
+
 @api_router.post("/v1/sessions", dependencies=[Depends(verify_api_key)])
-async def create_session():
+async def create_session() -> dict[str, str]:
     """Create a new conversation session.
 
     Sessions enable multi-turn conversations with context persistence.
@@ -373,7 +374,7 @@ async def create_session():
 
 
 @api_router.delete("/v1/sessions/{session_id}", dependencies=[Depends(verify_api_key)])
-async def delete_session(session_id: str):
+async def delete_session(session_id: str) -> dict[str, str]:
     """Delete a conversation session."""
     closed = await session_manager.close_session(session_id)
     if not closed:
@@ -382,7 +383,7 @@ async def delete_session(session_id: str):
 
 
 @api_router.get("/v1/config", dependencies=[Depends(verify_api_key)])
-async def get_config():
+async def get_config() -> dict[str, Any]:
     """Get current server configuration (non-sensitive)."""
     return {
         "default_model": settings.default_model,
@@ -397,7 +398,7 @@ async def get_config():
 
 
 @api_router.get("/v1/pool/stats", dependencies=[Depends(verify_api_key)])
-async def get_pool_stats():
+async def get_pool_stats() -> dict[str, Any]:
     """Get session pool statistics.
 
     Returns information about the session pool including:
@@ -410,7 +411,7 @@ async def get_pool_stats():
 
 
 @api_router.get("/v1/logs/stats", dependencies=[Depends(verify_api_key)])
-async def get_access_log_stats():
+async def get_access_log_stats() -> dict[str, Any]:
     """Get access log statistics.
 
     Returns information about the DuckDB access logs including:
@@ -431,7 +432,8 @@ async def get_access_log_stats():
 # Files API (Beta: files-api-2025-04-14)
 # ============================================================================
 
-def _check_file_store():
+
+def _check_file_store() -> Any:
     """Check if file store is available, raise 503 if not."""
     store = get_file_store()
     if store is None:
@@ -452,7 +454,7 @@ async def upload_file(
     file: UploadFile = File(...),
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Upload a file for use in API requests.
 
     Files can be referenced in Messages API requests using the file ID.
@@ -502,7 +504,7 @@ async def list_files(
     before_id: Optional[str] = Query(default=None),
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> FilesListResponse:
     """List uploaded files with pagination."""
     store = _check_file_store()
 
@@ -530,7 +532,7 @@ async def get_file(
     file_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Get metadata for a specific file."""
     store = _check_file_store()
 
@@ -558,7 +560,7 @@ async def get_file_content(
     file_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Response:
     """Download file content."""
     store = _check_file_store()
 
@@ -594,7 +596,7 @@ async def delete_file(
     file_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> FileDeletedResponse:
     """Delete a file."""
     store = _check_file_store()
 
@@ -622,7 +624,8 @@ async def delete_file(
 # Message Batches API
 # ============================================================================
 
-def _check_batch_processor():
+
+def _check_batch_processor() -> Any:
     """Check if batch processor is available, raise 503 if not."""
     processor = get_batch_processor()
     if processor is None:
@@ -631,7 +634,7 @@ def _check_batch_processor():
             detail=ErrorResponse(
                 error=ErrorDetail(
                     type="service_unavailable",
-                    message="Batch processing is not configured. Initialize with init_batch_processor().",
+                    message="Batch processing not configured. Call init_batch_processor().",
                 )
             ).model_dump(),
         )
@@ -643,7 +646,7 @@ async def create_batch(
     request: CreateBatchRequest,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Create a message batch for parallel processing.
 
     Unlike the real Anthropic API which takes up to 24 hours,
@@ -689,7 +692,7 @@ async def list_batches(
     before_id: Optional[str] = Query(default=None),
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> BatchesListResponse:
     """List message batches with pagination."""
     processor = _check_batch_processor()
 
@@ -717,7 +720,7 @@ async def get_batch(
     batch_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Get a specific message batch by ID."""
     processor = _check_batch_processor()
 
@@ -745,7 +748,7 @@ async def cancel_batch(
     batch_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> Any:
     """Cancel a message batch."""
     processor = _check_batch_processor()
 
@@ -773,7 +776,7 @@ async def get_batch_results(
     batch_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> EventSourceResponse:
     """Stream batch results as JSONL.
 
     Returns results for a completed batch. Each line is a JSON object
@@ -787,7 +790,8 @@ async def get_batch_results(
         logger.debug(f"Beta features: {anthropic_beta}")
 
     try:
-        async def generate():
+
+        async def generate() -> AsyncIterator[str]:
             async for line in processor.get_results(batch_id):
                 yield line
 
@@ -800,7 +804,11 @@ async def get_batch_results(
             status_code=404 if "not found" in str(e).lower() else 400,
             detail=ErrorResponse(
                 error=ErrorDetail(
-                    type=ErrorType.NOT_FOUND.value if "not found" in str(e).lower() else ErrorType.INVALID_REQUEST.value,
+                    type=(
+                        ErrorType.NOT_FOUND.value
+                        if "not found" in str(e).lower()
+                        else ErrorType.INVALID_REQUEST.value
+                    ),
                     message=str(e),
                 )
             ).model_dump(),
@@ -812,7 +820,7 @@ async def delete_batch(
     batch_id: str,
     anthropic_version: Optional[str] = Header(None, alias="anthropic-version"),
     anthropic_beta: Optional[str] = Header(None, alias="anthropic-beta"),
-):
+) -> MessageBatchDeletedResponse:
     """Delete a completed message batch."""
     processor = _check_batch_processor()
 

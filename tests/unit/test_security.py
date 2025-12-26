@@ -1,7 +1,8 @@
 """Unit tests for API security module."""
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi import HTTPException
 
 from src.api.security import verify_api_key
@@ -11,7 +12,7 @@ class TestVerifyApiKey:
     """Test API key verification."""
 
     @pytest.mark.asyncio
-    async def test_no_auth_key_configured_allows_all(self):
+    async def test_no_auth_key_configured_allows_all(self) -> None:
         """Test that requests are allowed when no auth key is configured."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = None
@@ -21,7 +22,7 @@ class TestVerifyApiKey:
             await verify_api_key(x_api_key="any-key", authorization=None)
 
     @pytest.mark.asyncio
-    async def test_empty_auth_key_allows_all(self):
+    async def test_empty_auth_key_allows_all(self) -> None:
         """Test that empty auth key allows all requests."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = ""
@@ -30,7 +31,7 @@ class TestVerifyApiKey:
             await verify_api_key(x_api_key=None, authorization=None)
 
     @pytest.mark.asyncio
-    async def test_valid_x_api_key_header(self):
+    async def test_valid_x_api_key_header(self) -> None:
         """Test valid x-api-key header passes."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -39,7 +40,7 @@ class TestVerifyApiKey:
             await verify_api_key(x_api_key="secret-key-123", authorization=None)
 
     @pytest.mark.asyncio
-    async def test_valid_bearer_token(self):
+    async def test_valid_bearer_token(self) -> None:
         """Test valid Bearer token passes."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -48,7 +49,7 @@ class TestVerifyApiKey:
             await verify_api_key(x_api_key=None, authorization="Bearer secret-key-123")
 
     @pytest.mark.asyncio
-    async def test_bearer_case_insensitive(self):
+    async def test_bearer_case_insensitive(self) -> None:
         """Test Bearer token prefix is case-insensitive."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -58,7 +59,7 @@ class TestVerifyApiKey:
             await verify_api_key(x_api_key=None, authorization="BEARER secret-key-123")
 
     @pytest.mark.asyncio
-    async def test_invalid_x_api_key_raises_401(self):
+    async def test_invalid_x_api_key_raises_401(self) -> None:
         """Test invalid x-api-key raises 401."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -69,7 +70,7 @@ class TestVerifyApiKey:
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_invalid_bearer_token_raises_401(self):
+    async def test_invalid_bearer_token_raises_401(self) -> None:
         """Test invalid Bearer token raises 401."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -80,7 +81,7 @@ class TestVerifyApiKey:
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_missing_key_when_required_raises_401(self):
+    async def test_missing_key_when_required_raises_401(self) -> None:
         """Test missing key when auth required raises 401."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -89,10 +90,11 @@ class TestVerifyApiKey:
                 await verify_api_key(x_api_key=None, authorization=None)
 
             assert exc_info.value.status_code == 401
+            assert exc_info.value.headers is not None
             assert "WWW-Authenticate" in exc_info.value.headers
 
     @pytest.mark.asyncio
-    async def test_malformed_authorization_header(self):
+    async def test_malformed_authorization_header(self) -> None:
         """Test malformed Authorization header raises 401."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
@@ -106,13 +108,10 @@ class TestVerifyApiKey:
                 await verify_api_key(x_api_key=None, authorization="Basic secret-key-123")
 
     @pytest.mark.asyncio
-    async def test_x_api_key_takes_precedence(self):
+    async def test_x_api_key_takes_precedence(self) -> None:
         """Test x-api-key header is checked before Authorization."""
         with patch("src.api.security.settings") as mock_settings:
             mock_settings.auth_key = "secret-key-123"
 
             # Valid x-api-key with invalid Authorization should pass
-            await verify_api_key(
-                x_api_key="secret-key-123",
-                authorization="Bearer wrong-key"
-            )
+            await verify_api_key(x_api_key="secret-key-123", authorization="Bearer wrong-key")

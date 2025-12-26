@@ -6,13 +6,12 @@ Loads configuration from settings/settings.toml (non-secrets) and .env (secrets)
 from __future__ import annotations
 
 import tomllib
+from enum import Enum
 from pathlib import Path
 from typing import Any
-from enum import Enum
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 # Path to settings.toml (relative to this file)
 SETTINGS_DIR = Path(__file__).parent
@@ -57,6 +56,16 @@ class ToolsConfig(BaseModel):
     allowed: list[str] = Field(default_factory=list)
 
 
+class HooksConfig(BaseModel):
+    """SDK Hooks configuration."""
+
+    audit_enabled: bool = True
+    permission_enabled: bool = True
+    rate_limit_enabled: bool = False
+    rate_limit_requests_per_minute: int = 60
+    deny_patterns: list[str] = Field(default_factory=list)
+
+
 class ClaudeConfig(BaseModel):
     """Claude Agent SDK configuration."""
 
@@ -67,7 +76,8 @@ class ClaudeConfig(BaseModel):
     sdk_message_mode: SDKMessageMode = SDKMessageMode.FORWARD
     system_prompt: SystemPromptConfig = Field(default_factory=SystemPromptConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
-    setting_sources: list[str] = Field(default_factory=lambda: ["user", "project"])
+    hooks: HooksConfig = Field(default_factory=HooksConfig)
+    setting_sources: list[str] = Field(default_factory=lambda: ["user", "project", "local"])
 
 
 class SecurityConfig(BaseModel):
@@ -179,6 +189,10 @@ class Settings(BaseSettings):
         """Get list of setting sources."""
         return self.claude.setting_sources
 
+    def get_hooks_config(self) -> HooksConfig:
+        """Get hooks configuration."""
+        return self.claude.hooks
+
     def get_cors_origins_list(self) -> list[str]:
         """Get CORS origins."""
         return self.security.cors_origins
@@ -194,7 +208,8 @@ def load_toml_settings() -> dict[str, Any]:
         return {}
 
     with open(SETTINGS_TOML_PATH, "rb") as f:
-        return tomllib.load(f)
+        result: dict[str, Any] = tomllib.load(f)
+        return result
 
 
 def get_settings() -> Settings:

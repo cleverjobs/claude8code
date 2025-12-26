@@ -1,8 +1,9 @@
 """Unit tests for DuckDB access logging module."""
 
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 
 from src.core.access_log import (
     DUCKDB_AVAILABLE,
@@ -16,11 +17,11 @@ from src.core.context import RequestContext
 class TestAccessLogAvailability:
     """Test DuckDB availability detection."""
 
-    def test_duckdb_available_flag(self):
+    def test_duckdb_available_flag(self) -> None:
         """Test DUCKDB_AVAILABLE flag is boolean."""
         assert isinstance(DUCKDB_AVAILABLE, bool)
 
-    def test_is_access_log_available_without_init(self):
+    def test_is_access_log_available_without_init(self) -> None:
         """Test is_access_log_available returns False without initialization."""
         # Without initialization, should be False
         # (may be True if another test initialized it)
@@ -31,7 +32,7 @@ class TestAccessLogAvailability:
 class TestAccessLogWriter:
     """Test AccessLogWriter class."""
 
-    def test_writer_creation(self):
+    def test_writer_creation(self) -> None:
         """Test creating an AccessLogWriter."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -47,7 +48,7 @@ class TestAccessLogWriter:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
-    async def test_writer_start_stop(self):
+    async def test_writer_start_stop(self) -> None:
         """Test starting and stopping the writer."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -63,7 +64,7 @@ class TestAccessLogWriter:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
-    async def test_writer_log_request(self):
+    async def test_writer_log_request(self) -> None:
         """Test logging a request and querying it back."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -104,7 +105,7 @@ class TestAccessLogWriter:
 
     @pytest.mark.asyncio
     @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
-    async def test_writer_get_stats(self):
+    async def test_writer_get_stats(self) -> None:
         """Test getting access log statistics."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -121,7 +122,7 @@ class TestAccessLogWriter:
                 await writer.stop()
 
     @pytest.mark.asyncio
-    async def test_writer_graceful_when_not_started(self):
+    async def test_writer_graceful_when_not_started(self) -> None:
         """Test writer is graceful when not started."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -139,7 +140,7 @@ class TestAccessLogWriter:
             results = writer.query("SELECT 1")
             assert results == []
 
-    def test_writer_get_stats_when_not_connected(self):
+    def test_writer_get_stats_when_not_connected(self) -> None:
         """Test get_stats when not connected."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -153,7 +154,7 @@ class TestGracefulDegradation:
     """Test graceful degradation when DuckDB not installed."""
 
     @pytest.mark.asyncio
-    async def test_writer_start_without_duckdb(self):
+    async def test_writer_start_without_duckdb(self) -> None:
         """Test writer start doesn't crash without DuckDB."""
         # This test verifies the code path works
         # whether DuckDB is installed or not
@@ -166,7 +167,7 @@ class TestGracefulDegradation:
             await writer.stop()
 
     @pytest.mark.asyncio
-    async def test_log_without_running_writer(self):
+    async def test_log_without_running_writer(self) -> None:
         """Test logging when writer not running doesn't crash."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.duckdb"
@@ -185,7 +186,7 @@ class TestGracefulDegradation:
 class TestGlobalWriter:
     """Test global writer functions."""
 
-    def test_get_access_log_writer_returns_none_initially(self):
+    def test_get_access_log_writer_returns_none_initially(self) -> None:
         """Test get_access_log_writer returns None or writer."""
         writer = get_access_log_writer()
         # May be None or a writer depending on test order
