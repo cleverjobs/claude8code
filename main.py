@@ -25,7 +25,7 @@ Environment variables:
   CLAUDE8CODE_HOST              Server host (default: 0.0.0.0)
   CLAUDE8CODE_PORT              Server port (default: 8787)
   CLAUDE8CODE_DEBUG             Enable debug mode (default: false)
-  CLAUDE8CODE_DEFAULT_MODEL     Default model (default: claude-sonnet-4-5-20250514)
+  CLAUDE8CODE_DEFAULT_MODEL     Default model (default: claude-opus-4-5-20251101)
   CLAUDE8CODE_MAX_TURNS         Max agent turns (default: 10)
   CLAUDE8CODE_PERMISSION_MODE   Permission mode (default: acceptEdits)
   CLAUDE8CODE_CWD               Working directory for Claude Code

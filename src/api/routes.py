@@ -40,6 +40,7 @@ from ..sdk import (
     process_request_streaming,
     session_manager,
 )
+from ..sdk.workspace import get_workspace, reload_workspace
 from .security import verify_api_key
 
 logger = logging.getLogger(__name__)
@@ -426,6 +427,47 @@ async def get_access_log_stats() -> dict[str, Any]:
     if not writer:
         return {"available": False, "reason": "DuckDB not installed or logging disabled"}
     return writer.get_stats()
+
+
+@api_router.get("/v1/workspace", dependencies=[Depends(verify_api_key)])
+async def get_workspace_info() -> dict[str, Any]:
+    """Get workspace configuration and available extensions.
+
+    Returns information about loaded workspace extensions:
+    - Available commands (slash commands)
+    - Available skills
+    - Available agents (subagents)
+    - Whether CLAUDE.md exists
+    - Whether .mcp.json exists
+    """
+    workspace = get_workspace(settings.cwd)
+    return {
+        "cwd": settings.cwd,
+        "commands": list(workspace.commands.keys()),
+        "skills": list(workspace.skills.keys()),
+        "agents": list(workspace.agents.keys()),
+        "has_claude_md": workspace.claude_md is not None,
+        "has_mcp_config": workspace.mcp_config is not None,
+    }
+
+
+@api_router.post("/v1/workspace/reload", dependencies=[Depends(verify_api_key)])
+async def reload_workspace_config() -> dict[str, Any]:
+    """Force reload workspace configuration.
+
+    Useful during development when modifying workspace extensions.
+    Returns the new workspace configuration after reload.
+    """
+    workspace = reload_workspace(settings.cwd)
+    return {
+        "status": "reloaded",
+        "cwd": settings.cwd,
+        "commands": list(workspace.commands.keys()),
+        "skills": list(workspace.skills.keys()),
+        "agents": list(workspace.agents.keys()),
+        "has_claude_md": workspace.claude_md is not None,
+        "has_mcp_config": workspace.mcp_config is not None,
+    }
 
 
 # ============================================================================

@@ -70,6 +70,7 @@ from ..models import (  # noqa: E402
 from ..models import TextBlock as ResponseTextBlock  # noqa: E402
 from ..models import ThinkingBlock as ResponseThinkingBlock  # noqa: E402
 from .hooks import get_configured_hooks  # noqa: E402
+from .workspace import build_system_context, expand_command, get_workspace  # noqa: E402
 
 # Model mapping: n8n model names -> Claude Agent SDK models
 MODEL_MAP = {
@@ -195,14 +196,34 @@ def build_prompt_from_messages(request: MessagesRequest) -> str:
 
     The Claude Agent SDK's query() function takes a single prompt string,
     so we need to format the conversation history appropriately.
+
+    Also handles command expansion:
+    - If request.command is set, expands that command
+    - If user message starts with /command, expands that command
     """
+    workspace = get_workspace(settings.cwd)
     parts = []
 
-    for msg in request.messages:
+    for i, msg in enumerate(request.messages):
         role_prefix = "Human:" if msg.role == "user" else "Assistant:"
 
         if isinstance(msg.content, str):
-            parts.append(f"{role_prefix} {msg.content}")
+            content = msg.content
+
+            # Handle command expansion for the last user message
+            if msg.role == "user" and i == len(request.messages) - 1:
+                # Explicit command parameter takes precedence
+                if request.command and request.command in workspace.commands:
+                    command_content = workspace.commands[request.command]
+                    if content:
+                        content = f"{command_content}\n\nUser input: {content}"
+                    else:
+                        content = command_content
+                else:
+                    # Check for /command in prompt
+                    content, _ = expand_command(content, workspace)
+
+            parts.append(f"{role_prefix} {content}")
         else:
             # Handle content blocks
             text_parts: list[str] = []
@@ -220,6 +241,10 @@ def build_prompt_from_messages(request: MessagesRequest) -> str:
 def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
     """Build ClaudeAgentOptions from the request and server settings."""
 
+    # Load workspace configuration
+    workspace = get_workspace(settings.cwd)
+    workspace_context = build_system_context(workspace)
+
     # Determine system prompt
     system_prompt: str | SystemPromptPreset | None = None
     if settings.system_prompt_mode == "claude_code":
@@ -236,6 +261,15 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
             system_prompt = " ".join(
                 block.get("text", "") for block in request.system if block.get("type") == "text"
             )
+
+    # Inject workspace context into system prompt
+    if workspace_context:
+        if system_prompt is None:
+            system_prompt = workspace_context
+        elif isinstance(system_prompt, str):
+            system_prompt = f"{system_prompt}\n\n{workspace_context}"
+        # Note: SystemPromptPreset doesn't support appending, workspace context
+        # will be applied separately via the prompt if using preset
 
     # Build options
     options = ClaudeAgentOptions(

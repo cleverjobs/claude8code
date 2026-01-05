@@ -16,9 +16,7 @@ services:
     ports:
       - "8787:8787"
     volumes:
-      # Mount Claude credentials from host
-      - ~/.claude:/home/claude8code/.claude:ro
-      # Mount workspace for file operations
+      # Mount workspace for file operations and extensions
       - ./workspace:/home/claude8code/workspace
     environment:
       - CLAUDE8CODE_HOST=0.0.0.0
@@ -26,9 +24,9 @@ services:
       - CLAUDE8CODE_CWD=/home/claude8code/workspace
       - CLAUDE8CODE_MAX_TURNS=10
       - CLAUDE8CODE_PERMISSION_MODE=acceptEdits
-      # Optional: OAuth token (alternative to mounted credentials)
-      # - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
-      # Optional: API key authentication
+      # REQUIRED: OAuth token from `claude setup-token` (valid for 1 year)
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:?CLAUDE_CODE_OAUTH_TOKEN is required - run 'claude setup-token' to get one}
+      # Optional: API key authentication for the API server
       # - CLAUDE8CODE_AUTH_KEY=${CLAUDE8CODE_AUTH_KEY:-}
     restart: unless-stopped
     healthcheck:

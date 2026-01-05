@@ -69,7 +69,7 @@ class HooksConfig(BaseModel):
 class ClaudeConfig(BaseModel):
     """Claude Agent SDK configuration."""
 
-    default_model: str = "claude-sonnet-4-5-20250514"
+    default_model: str = "claude-opus-4-5-20251101"
     max_turns: int = 10
     permission_mode: str = "acceptEdits"
     cwd: str | None = None

@@ -39,9 +39,13 @@ Unlike other proxy solutions that simply forward API calls, claude8code uses the
 # Install Claude Code CLI
 npm install -g @anthropic-ai/claude-code
 
-# Authenticate (opens browser)
-claude /login
+# Create a long-lived authentication token (valid for 1 year)
+claude setup-token
+# Copy the token and set it as an environment variable:
+export CLAUDE_CODE_OAUTH_TOKEN="your-token-here"
 ```
+
+> **Important:** Use `claude setup-token` to get a long-lived token (1 year). Do NOT use `claude /login` - it creates short-lived tokens that expire in 2-4 hours. Set the token via `CLAUDE_CODE_OAUTH_TOKEN` environment variable.
 
 ## Installation
 
@@ -656,10 +660,13 @@ npm install -g @anthropic-ai/claude-code
 
 ### "Authentication required"
 
-Log in to Claude Code:
+Create a long-lived authentication token and set it:
 ```bash
-claude /login
+claude setup-token
+export CLAUDE_CODE_OAUTH_TOKEN="your-token-here"
 ```
+
+> **Note:** Do NOT use `claude /login` - it creates short-lived tokens that expire in 2-4 hours.
 
 ### n8n still hitting api.anthropic.com
 

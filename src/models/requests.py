@@ -346,6 +346,13 @@ class MessagesRequest(BaseModel):
     thinking: ThinkingConfig | None = None
     service_tier: Literal["auto", "standard_only"] | None = None
 
+    # claude8code extensions (not part of Anthropic API)
+    command: str | None = Field(
+        default=None,
+        description="Workspace command to invoke (e.g., 'commit', 'pr'). "
+        "Loads command from workspace/.claude/commands/{command}.md",
+    )
+
 
 class CountTokensRequest(BaseModel):
     """Request body for POST /v1/messages/count_tokens - matches Anthropic's schema.

@@ -201,7 +201,22 @@ asyncio.run(test())
 
 **Solution:** Set a dummy key: `export ANTHROPIC_API_KEY="dummy-key"`
 
-The key value doesn't matter - claude8code ignores it and uses Claude Code CLI credentials instead.
+The key value doesn't matter - claude8code ignores it and uses the `CLAUDE_CODE_OAUTH_TOKEN` environment variable instead.
+
+### "OAuth token has expired"
+
+**Cause:** Using short-lived tokens from `claude /login`
+
+**Solution:** Use `claude setup-token` to get a long-lived token and set it:
+
+```bash
+claude setup-token
+export CLAUDE_CODE_OAUTH_TOKEN="your-token-here"
+```
+
+This creates a **long-lived token valid for 1 year**. Short-lived tokens from `claude /login` expire in 2-4 hours and will cause failures during long-running operations.
+
+> **Note:** claude8code uses the `CLAUDE_CODE_OAUTH_TOKEN` environment variable for authentication - it does NOT read from `~/.claude/` directly.
 
 ## Advanced Usage
 

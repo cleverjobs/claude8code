@@ -45,6 +45,14 @@ from .tokenizer import (
     count_request_tokens,
     count_tokens,
 )
+from .workspace import (
+    WorkspaceConfig,
+    build_system_context,
+    expand_command,
+    get_workspace,
+    load_workspace,
+    reload_workspace,
+)
 
 __all__ = [
     # Bridge
@@ -80,4 +88,11 @@ __all__ = [
     "get_batch_processor",
     "init_batch_processor",
     "shutdown_batch_processor",
+    # Workspace
+    "WorkspaceConfig",
+    "load_workspace",
+    "get_workspace",
+    "reload_workspace",
+    "expand_command",
+    "build_system_context",
 ]

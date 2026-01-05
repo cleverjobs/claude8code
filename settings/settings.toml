@@ -11,7 +11,7 @@ workers = 1
 log_level = "info"
 
 [claude]
-default_model = "claude-sonnet-4-5-20250514"
+default_model = "claude-opus-4-5-20251101"
 max_turns = 10
 permission_mode = "acceptEdits"
 cwd = "workspace"  # Working directory for Claude Code extensions (.claude/skills, commands, agents)
