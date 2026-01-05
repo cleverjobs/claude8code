@@ -27,13 +27,15 @@ ENV/
 
 # IDE
 .idea/
-.vscode/
+.vscode
 *.swp
 *.swo
 *~
 
 # Testing
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 .tox/

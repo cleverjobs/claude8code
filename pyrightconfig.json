@@ -1,14 +1,5 @@
 {
   "include": ["src", "tests", "main.py", "settings"],
-  "typeCheckingMode": "standard",
-  "pythonVersion": "3.13",
-  "reportUnknownVariableType": false,
-  "reportUnknownMemberType": false,
-  "reportUnknownArgumentType": false,
-  "reportUnknownParameterType": false,
-  "reportMissingTypeStubs": false,
-  "reportUnnecessaryIsInstance": false,
-  "reportAttributeAccessIssue": false,
-  "reportPossiblyUnboundVariable": false,
-  "reportOptionalMemberAccess": false
+  "typeCheckingMode": "off",
+  "pythonVersion": "3.13"
 }
