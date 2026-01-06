@@ -58,7 +58,7 @@ RUN useradd -m -s /bin/bash -u 1000 claude8code
 WORKDIR /app
 
 # Copy virtual environment from builder (paths match since both use /app)
-COPY --from=builder /app/.venv /app/.venv
+COPY --chown=claude8code:claude8code --from=builder /app/.venv /app/.venv
 
 # Copy application source
 COPY --chown=claude8code:claude8code src/ ./src/
