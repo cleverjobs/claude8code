@@ -148,6 +148,16 @@ down-observability:
 # ------------------------------------------------------------------------------
 # Release
 # ------------------------------------------------------------------------------
+# Usage: make release VERSION=x.y.z
+#
+# This will:
+#   1. Update version in pyproject.toml
+#   2. Commit the version bump
+#   3. Create an annotated git tag (vx.y.z)
+#
+# After running, push to trigger the Release workflow:
+#   git push origin main --tags
+# ------------------------------------------------------------------------------
 
 release:
 ifndef VERSION
@@ -164,8 +174,7 @@ endif
 	@echo ""
 	@echo "Release v$(VERSION) created locally."
 	@echo "To publish, run:"
-	@echo "  git push origin main"
-	@echo "  git push origin v$(VERSION)"
+	@echo "  git push origin main --tags"
 
 # ------------------------------------------------------------------------------
 # Help
