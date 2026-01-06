@@ -1,7 +1,7 @@
 # claude8code
 
-[![CI](https://github.com/krisjobs/claude8code/actions/workflows/ci.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/ci.yml)
-[![Release](https://github.com/krisjobs/claude8code/actions/workflows/release.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/release.yml)
+[![CI](https://github.com/cleverjobs/claude8code/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cleverjobs/claude8code/actions/workflows/ci.yml)
+[![Release](https://github.com/cleverjobs/claude8code/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/cleverjobs/claude8code/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker Hub](https://img.shields.io/docker/v/krisjobs/claude8code?label=docker)](https://hub.docker.com/r/krisjobs/claude8code)
@@ -51,7 +51,7 @@ export CLAUDE_CODE_OAUTH_TOKEN="your-token-here"
 
 ```bash
 # From source (recommended)
-git clone https://github.com/krisjobs/claude8code.git
+git clone https://github.com/cleverjobs/claude8code.git
 cd claude8code
 uv sync                        # Core dependencies
 uv sync --extra observability  # With observability
@@ -623,7 +623,7 @@ export CLAUDE8CODE_CWD="/path/to/workspace"
 
 ```bash
 # Clone and install dependencies
-git clone https://github.com/krisjobs/claude8code.git
+git clone https://github.com/cleverjobs/claude8code.git
 cd claude8code
 uv sync --all-extras
 
