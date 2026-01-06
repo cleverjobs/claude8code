@@ -22,7 +22,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies only (not the project itself yet)
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-install-project
 
 # Copy source files
 COPY src/ ./src/
@@ -30,7 +30,7 @@ COPY settings/ ./settings/
 COPY README.md main.py ./
 
 # Install the project (editable install)
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen
 
 # ==============================================================================
 # Stage 2: Runtime image
@@ -63,7 +63,7 @@ COPY --from=builder /app/.venv /app/.venv
 # Copy application source
 COPY --chown=claude8code:claude8code src/ ./src/
 COPY --chown=claude8code:claude8code settings/ ./settings/
-COPY --chown=claude8code:claude8code pyproject.toml README.md main.py ./
+COPY --chown=claude8code:claude8code pyproject.toml uv.lock README.md main.py ./
 COPY --chown=claude8code:claude8code entrypoint.sh ./
 
 # Make entrypoint executable

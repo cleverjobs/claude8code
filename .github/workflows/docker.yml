@@ -1,20 +1,20 @@
-name: Docker Build & Push
+name: Docker
 
 on:
-  # Run after Tests workflow completes on main
+  # Run after Integration Tests complete (which already waits for Lint + Unit Tests)
   workflow_run:
-    workflows: ["Tests"]
+    workflows: ["Integration Tests"]
     types: [completed]
     branches: [main]
   # Build (but don't push) on PRs for validation
-  # Note: Tags are handled by release.yml which has its own docker job
   pull_request:
     branches: [main]
 
 jobs:
   build:
+    name: Build & Push
     runs-on: ubuntu-latest
-    # Only run if Tests workflow succeeded (or if triggered by PR)
+    # Only run if triggered by PR, or if Integration Tests succeeded
     if: |
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
@@ -22,7 +22,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # For workflow_run, checkout the commit that triggered the Tests workflow
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Docker Buildx

@@ -2,7 +2,8 @@
 # claude8code - Build, Test, and Deploy Commands
 # ==============================================================================
 # Development:
-#   make install      - Install dependencies
+#   make install      - Install all dependencies (dev + observability)
+#   make install-prod - Install production dependencies only
 #   make run          - Run development server
 #   make test         - Run all tests
 #   make check        - Run pre-commit checks
@@ -16,14 +17,14 @@
 #   make push         - Push to Docker Hub
 #
 # Observability:
-#   make up-monitoring - Start with Prometheus/Grafana
+#   make up-observability - Start with Prometheus/Grafana
 #
 # Release:
 #   make release VERSION=x.y.z - Create a new release
 # ==============================================================================
 
-.PHONY: install run test test-unit test-integration coverage check lint format \
-        build push up down logs clean up-monitoring help release
+.PHONY: install install-prod run test test-unit test-integration coverage check lint format \
+        build push up down logs clean up-observability down-observability help release
 
 DOCKER_HUB_USER := krisjobs
 IMAGE := $(DOCKER_HUB_USER)/claude8code
@@ -34,14 +35,18 @@ VERSION ?= $(shell grep 'version = ' pyproject.toml | head -1 | cut -d'"' -f2)
 # ------------------------------------------------------------------------------
 
 install:
-	@echo "Installing dependencies..."
-	python -m pip install --upgrade pip
-	pip install -e ".[dev]"
+	@echo "Installing all dependencies (dev + observability)..."
+	uv sync --extra dev --extra observability
 	@echo "Done! Run 'make run' to start the server."
+
+install-prod:
+	@echo "Installing production dependencies only..."
+	uv sync --frozen
+	@echo "Done!"
 
 run:
 	@echo "Starting development server..."
-	claude8code --reload --debug
+	uv run claude8code --reload --debug
 
 # ------------------------------------------------------------------------------
 # Testing
@@ -52,7 +57,7 @@ test: lint test-unit
 
 test-unit:
 	@echo "Running unit tests..."
-	USE_CLAUDE_MOCK=true pytest tests/ -v
+	USE_CLAUDE_MOCK=true uv run pytest tests/ -v
 
 test-integration: build
 	@echo "Running integration tests..."
@@ -69,7 +74,7 @@ test-integration: build
 
 coverage:
 	@echo "Running tests with coverage..."
-	USE_CLAUDE_MOCK=true pytest tests/ -v --cov=claude8code --cov-report=html --cov-report=term-missing
+	USE_CLAUDE_MOCK=true uv run pytest tests/ -v --cov=src --cov-report=html --cov-report=term-missing
 	@echo "Coverage report generated in htmlcov/"
 
 # ------------------------------------------------------------------------------
@@ -127,7 +132,7 @@ clean:
 # Observability Stack
 # ------------------------------------------------------------------------------
 
-up-monitoring:
+up-observability:
 	@echo "Starting claude8code with Prometheus/Grafana..."
 	docker compose -f docker-compose.observability.yml up -d
 	@echo ""
@@ -136,8 +141,8 @@ up-monitoring:
 	@echo "  - Prometheus:  http://localhost:9090"
 	@echo "  - Grafana:     http://localhost:3000 (admin/admin)"
 
-down-monitoring:
-	@echo "Stopping monitoring stack..."
+down-observability:
+	@echo "Stopping observability stack..."
 	docker compose -f docker-compose.observability.yml down
 
 # ------------------------------------------------------------------------------
@@ -170,7 +175,8 @@ help:
 	@echo "claude8code - Build, Test, and Deploy Commands"
 	@echo ""
 	@echo "Development:"
-	@echo "  make install         - Install dependencies"
+	@echo "  make install         - Install all dependencies (dev + observability)"
+	@echo "  make install-prod    - Install production dependencies only"
 	@echo "  make run             - Run development server with auto-reload"
 	@echo ""
 	@echo "Testing:"
@@ -193,8 +199,8 @@ help:
 	@echo "  make clean           - Remove all containers, volumes, caches"
 	@echo ""
 	@echo "Observability:"
-	@echo "  make up-monitoring   - Start with Prometheus/Grafana"
-	@echo "  make down-monitoring - Stop monitoring stack"
+	@echo "  make up-observability   - Start with Prometheus/Grafana"
+	@echo "  make down-observability - Stop observability stack"
 	@echo ""
 	@echo "Release:"
 	@echo "  make release VERSION=x.y.z - Create a new release"
