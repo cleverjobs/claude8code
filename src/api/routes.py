@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
@@ -44,6 +45,18 @@ from ..sdk.workspace import get_workspace, reload_workspace
 from .security import verify_api_key
 
 logger = logging.getLogger(__name__)
+
+
+def _resolved_cwd() -> str | None:
+    """Get cwd as an absolute resolved path.
+
+    Returns the cwd setting resolved to an absolute path,
+    or None if not configured.
+    """
+    if settings.cwd:
+        p = Path(settings.cwd)
+        return str(p.resolve() if not p.is_absolute() else p)
+    return None
 
 
 # Model metadata for API response
@@ -392,7 +405,7 @@ async def get_config() -> dict[str, Any]:
         "permission_mode": settings.permission_mode,
         "system_prompt_mode": settings.system_prompt_mode,
         "sdk_message_mode": settings.sdk_message_mode.value,
-        "cwd": settings.cwd,
+        "cwd": _resolved_cwd(),
         "allowed_tools": settings.get_allowed_tools_list(),
         "setting_sources": settings.get_setting_sources_list(),
     }
@@ -442,7 +455,7 @@ async def get_workspace_info() -> dict[str, Any]:
     """
     workspace = get_workspace(settings.cwd)
     return {
-        "cwd": settings.cwd,
+        "cwd": _resolved_cwd(),
         "commands": list(workspace.commands.keys()),
         "skills": list(workspace.skills.keys()),
         "agents": list(workspace.agents.keys()),
@@ -461,7 +474,7 @@ async def reload_workspace_config() -> dict[str, Any]:
     workspace = reload_workspace(settings.cwd)
     return {
         "status": "reloaded",
-        "cwd": settings.cwd,
+        "cwd": _resolved_cwd(),
         "commands": list(workspace.commands.keys()),
         "skills": list(workspace.skills.keys()),
         "agents": list(workspace.agents.keys()),

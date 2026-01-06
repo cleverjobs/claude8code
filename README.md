@@ -1,7 +1,7 @@
 # claude8code
 
-[![Tests](https://github.com/krisjobs/claude8code/actions/workflows/test.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/test.yml)
-[![Docker](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/docker.yml)
+[![CI](https://github.com/krisjobs/claude8code/actions/workflows/ci.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/ci.yml)
+[![Release](https://github.com/krisjobs/claude8code/actions/workflows/release.yml/badge.svg)](https://github.com/krisjobs/claude8code/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Docker Hub](https://img.shields.io/docker/v/krisjobs/claude8code?label=docker)](https://hub.docker.com/r/krisjobs/claude8code)
@@ -50,30 +50,18 @@ export CLAUDE_CODE_OAUTH_TOKEN="your-token-here"
 ## Installation
 
 ```bash
-# Minimal installation
-pip install claude8code
-
-# With Prometheus metrics
-pip install "claude8code[metrics]"
-
-# With DuckDB access logs
-pip install "claude8code[analytics]"
-
-# With all optional features
-pip install "claude8code[all]"
-
-# From source
+# From source (recommended)
 git clone https://github.com/krisjobs/claude8code.git
 cd claude8code
-pip install -e ".[all]"
+uv sync                        # Core dependencies
+uv sync --extra observability  # With observability
+uv sync --extra dev            # With dev tools
+uv sync --all-extras           # Everything
 ```
 
 **Optional dependencies:**
-- `metrics` - Prometheus metrics export (`prometheus-client`)
-- `analytics` - DuckDB access logs (`duckdb`)
-- `logging` - Structured logging (`structlog`)
-- `tokenizer` - Token counting (`tiktoken`)
-- `all` - All optional features
+- `observability` - Prometheus metrics, DuckDB access logs, structured logging
+- `dev` - Development tools (pytest, ruff, mypy, pre-commit)
 
 ## Quick Start
 
@@ -170,12 +158,14 @@ project/
 host = "0.0.0.0"
 port = 8787
 debug = false
+workers = 1
 log_level = "info"
 
 [claude]
 default_model = "claude-sonnet-4-5-20250514"
 max_turns = 10
 permission_mode = "acceptEdits"
+cwd = "workspace"  # Working directory for Claude Code extensions
 sdk_message_mode = "forward"  # forward | formatted | ignore
 
 [claude.system_prompt]
@@ -183,6 +173,13 @@ mode = "claude_code"  # claude_code | custom
 
 [claude.tools]
 allowed = []  # Empty = all tools, or specify: ["Read", "Write", "Bash"]
+
+[claude.hooks]
+audit_enabled = true
+permission_enabled = true
+rate_limit_enabled = false
+rate_limit_requests_per_minute = 60
+deny_patterns = []
 
 [security]
 cors_origins = ["*"]
@@ -225,6 +222,7 @@ CLAUDE8CODE_AUTH_KEY=secret
 | `POST /v1/messages` | `POST /sdk/v1/messages` | Create message (streaming & non-streaming) |
 | `POST /v1/messages/count_tokens` | `POST /sdk/v1/messages/count_tokens` | Count tokens before sending |
 | `GET /v1/models` | `GET /sdk/v1/models` | List available models |
+| `GET /v1/models/{model_id}` | `GET /sdk/v1/models/{model_id}` | Get specific model info |
 | `GET /health` | `GET /sdk/health` | Health check |
 
 ### Extended API
@@ -236,6 +234,8 @@ CLAUDE8CODE_AUTH_KEY=secret
 | `GET /v1/config` | View current configuration |
 | `GET /v1/pool/stats` | Session pool statistics |
 | `GET /v1/logs/stats` | Access log statistics (DuckDB) |
+| `GET /v1/workspace` | Get workspace configuration |
+| `POST /v1/workspace/reload` | Reload workspace config |
 | `GET /health` | Health check |
 | `GET /metrics` | Prometheus metrics |
 

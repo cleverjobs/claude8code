@@ -131,6 +131,10 @@ class Settings(BaseSettings):
     # Secrets from .env
     auth_key: str | None = None
 
+    # Top-level overrides (can be set via CLAUDE8CODE_* env vars)
+    # validation_alias maps CLAUDE8CODE_CWD env var to this field
+    cwd_override: str | None = Field(default=None, validation_alias="CLAUDE8CODE_CWD")
+
     # Non-secret settings from TOML
     server: ServerConfig = Field(default_factory=ServerConfig)
     claude: ClaudeConfig = Field(default_factory=ClaudeConfig)
@@ -165,6 +169,12 @@ class Settings(BaseSettings):
 
     @property
     def cwd(self) -> str | None:
+        """Get cwd with environment override support.
+
+        Environment variable CLAUDE8CODE_CWD takes precedence over nested config.
+        """
+        if self.cwd_override is not None:
+            return self.cwd_override
         return self.claude.cwd
 
     @property

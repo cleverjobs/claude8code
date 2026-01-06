@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import logging
+from pathlib import Path
 
 import uvicorn
 
 from src.core import settings
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -83,6 +87,15 @@ n8n Integration:
     host = args.host or settings.host
     port = args.port or settings.port
     debug = args.debug or settings.debug
+
+    # Validate cwd configuration
+    if settings.cwd:
+        cwd_path = Path(settings.cwd)
+        if not cwd_path.is_absolute():
+            cwd_path = cwd_path.resolve()
+        if not cwd_path.exists():
+            logging.basicConfig(level=logging.WARNING)
+            logger.warning(f"Configured cwd does not exist: {cwd_path}")
 
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗

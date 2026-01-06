@@ -284,9 +284,12 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
     if system_prompt:
         options.system_prompt = system_prompt
 
-    # Set working directory
+    # Set working directory (resolve to absolute path)
     if settings.cwd:
-        options.cwd = Path(settings.cwd)
+        cwd_path = Path(settings.cwd)
+        if not cwd_path.is_absolute():
+            cwd_path = cwd_path.resolve()
+        options.cwd = cwd_path
 
     # Set allowed tools
     allowed = settings.get_allowed_tools_list()
