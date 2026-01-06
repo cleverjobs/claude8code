@@ -10,29 +10,25 @@
 # ==============================================================================
 # Stage 1: Build dependencies
 # ==============================================================================
-FROM python:3.11-slim AS builder
+FROM python:3.13-slim AS builder
 
 WORKDIR /build
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Install UV
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy project files
-COPY pyproject.toml README.md ./
+# Copy project files (including lock file for reproducible builds)
+COPY pyproject.toml uv.lock README.md main.py ./
 COPY src/ ./src/
+COPY settings/ ./settings/
 
-# Install Python dependencies into a virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir --upgrade pip wheel \
-    && pip install --no-cache-dir -e .
+# Install Python dependencies using UV
+RUN uv sync --frozen --no-dev
 
 # ==============================================================================
 # Stage 2: Runtime image
 # ==============================================================================
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Install Node.js (required for Claude Code CLI) and runtime deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,23 +44,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create non-root user
 RUN useradd -m -s /bin/bash -u 1000 claude8code
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
 # Set up working directory
 WORKDIR /app
 
+# Copy virtual environment from builder
+COPY --from=builder /build/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Copy application source
 COPY --chown=claude8code:claude8code src/ ./src/
-COPY --chown=claude8code:claude8code pyproject.toml README.md ./
+COPY --chown=claude8code:claude8code settings/ ./settings/
+COPY --chown=claude8code:claude8code pyproject.toml README.md main.py ./
 COPY --chown=claude8code:claude8code entrypoint.sh ./
 
 # Make entrypoint executable
 RUN chmod +x /app/entrypoint.sh
-
-# Install the package (needed for entry point)
-RUN pip install --no-cache-dir -e .
 
 # Switch to non-root user
 USER claude8code
