@@ -94,4 +94,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Use entrypoint script for credential setup
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["uv", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["uv", "run", "--frozen", "python", "main.py", "--host", "0.0.0.0", "--port", "8787"]
