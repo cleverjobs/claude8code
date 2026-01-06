@@ -3,7 +3,7 @@
 [![CI](https://github.com/cleverjobs/claude8code/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cleverjobs/claude8code/actions/workflows/ci.yml)
 [![Release](https://github.com/cleverjobs/claude8code/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/cleverjobs/claude8code/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Docker Hub](https://img.shields.io/docker/v/krisjobs/claude8code?label=docker)](https://hub.docker.com/r/krisjobs/claude8code)
 
 **Anthropic-compatible API server powered by Claude Agent SDK** - Use your Claude Max/Pro subscription with n8n's native Anthropic node.
@@ -32,7 +32,7 @@ Unlike other proxy solutions that simply forward API calls, claude8code uses the
 ## Prerequisites
 
 1. **Node.js 18+** - Required for Claude Code CLI
-2. **Python 3.10+** - For running claude8code
+2. **Python 3.13+** - For running claude8code
 3. **Claude Pro/Max subscription** - Authenticated via Claude Code CLI
 
 ```bash
