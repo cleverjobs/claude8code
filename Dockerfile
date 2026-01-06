@@ -12,17 +12,24 @@
 # ==============================================================================
 FROM python:3.13-slim AS builder
 
-WORKDIR /build
+# Use same WORKDIR as runtime to avoid editable install path issues
+WORKDIR /app
 
 # Install UV
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 
-# Copy project files (including lock file for reproducible builds)
-COPY pyproject.toml uv.lock README.md main.py ./
+# Copy dependency files first for better layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies only (not the project itself yet)
+RUN uv sync --frozen --no-dev --no-install-project
+
+# Copy source files
 COPY src/ ./src/
 COPY settings/ ./settings/
+COPY README.md main.py ./
 
-# Install Python dependencies using UV
+# Install the project (editable install)
 RUN uv sync --frozen --no-dev
 
 # ==============================================================================
@@ -41,15 +48,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && npm cache clean --force
 
+# Install UV for runtime (to use venv with uv run)
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /bin/
+
 # Create non-root user
 RUN useradd -m -s /bin/bash -u 1000 claude8code
 
 # Set up working directory
 WORKDIR /app
 
-# Copy virtual environment from builder
-COPY --from=builder /build/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Copy virtual environment from builder (paths match since both use /app)
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application source
 COPY --chown=claude8code:claude8code src/ ./src/
@@ -85,4 +94,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Use entrypoint script for credential setup
 ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["claude8code", "--host", "0.0.0.0", "--port", "8787"]
+CMD ["uv", "run", "python", "main.py", "--host", "0.0.0.0", "--port", "8787"]
