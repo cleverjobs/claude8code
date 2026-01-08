@@ -4,6 +4,7 @@ Provides configurable hooks for:
 - Audit logging: Log all tool usage to access logs
 - Permission control: Block dangerous operations
 - Rate limiting: Basic rate limiting per session
+- Observability: Track tool invocations with metrics and structured logging
 
 These hooks integrate with the Claude Agent SDK's hook system
 and can be enabled/disabled via settings.
@@ -11,6 +12,7 @@ and can be enabled/disabled via settings.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -19,6 +21,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
 from claude_agent_sdk import HookMatcher
+
+from ..core.metrics import categorize_tool, record_tool_invocation
+from ..core.tool_observability import (
+    complete_tool_invocation,
+    extract_tool_metadata,
+    sanitize_for_logging,
+    start_tool_invocation,
+)
 
 if TYPE_CHECKING:
     from claude_agent_sdk.types import HookContext, HookInput, HookJSONOutput
@@ -224,6 +234,116 @@ async def rate_limit_hook(
     return {}
 
 
+async def observability_pre_hook(
+    input_data: HookInput,
+    tool_use_id: str | None,
+    context: HookContext,  # noqa: ARG001
+    log_parameters: bool = True,
+    redact_sensitive: bool = True,
+) -> HookJSONOutput:
+    """Pre-tool hook for observability: start tracking invocation.
+
+    Starts timing and logs invocation start with metadata.
+
+    Args:
+        input_data: Hook input data containing tool info
+        tool_use_id: The tool use ID for correlation
+        context: Hook context
+        log_parameters: Whether to log tool parameters
+        redact_sensitive: Whether to redact sensitive data
+
+    Returns:
+        Empty dict (no modifications, just tracking)
+    """
+    if not tool_use_id:
+        return {}
+
+    tool_name = str(input_data.get("tool_name", "unknown"))
+    tool_input = cast(dict[str, Any], input_data.get("tool_input", {}))
+    session_id = str(input_data.get("session_id", "unknown"))
+
+    # Start tracking this invocation (stores state for post-hook)
+    start_tool_invocation(
+        tool_use_id=tool_use_id,
+        tool_name=tool_name,
+        tool_input=tool_input if log_parameters else {},
+        session_id=session_id,
+    )
+
+    return {}
+
+
+async def observability_post_hook(
+    input_data: HookInput,
+    tool_use_id: str | None,
+    context: HookContext,  # noqa: ARG001
+    log_parameters: bool = True,
+    redact_sensitive: bool = True,
+) -> HookJSONOutput:
+    """Post-tool hook for observability: complete tracking and emit metrics.
+
+    Records duration, emits Prometheus metrics, and logs to DuckDB.
+
+    Args:
+        input_data: Hook input data containing tool info
+        tool_use_id: The tool use ID for correlation
+        context: Hook context
+        log_parameters: Whether to log tool parameters
+        redact_sensitive: Whether to redact sensitive data
+
+    Returns:
+        Empty dict (no modifications, just tracking)
+    """
+    if not tool_use_id:
+        return {}
+
+    tool_name = str(input_data.get("tool_name", "unknown"))
+    session_id = str(input_data.get("session_id", "unknown"))
+    tool_input = cast(dict[str, Any], input_data.get("tool_input", {}))
+
+    # Complete tracking and get duration
+    state = complete_tool_invocation(tool_use_id)
+
+    if state:
+        duration = state.duration_seconds
+
+        # Record Prometheus metrics
+        record_tool_invocation(
+            tool_name=tool_name,
+            duration=duration,
+            subagent_type=state.subagent_type,
+            skill_name=state.skill_name,
+        )
+
+        # Log to DuckDB (fire-and-forget)
+        try:
+            from ..core.access_log import log_tool_invocation
+
+            # Extract and sanitize parameters for storage
+            metadata = extract_tool_metadata(tool_name, tool_input)
+            if redact_sensitive:
+                metadata = sanitize_for_logging(metadata)
+
+            asyncio.create_task(
+                log_tool_invocation(
+                    tool_use_id=tool_use_id,
+                    session_id=session_id,
+                    tool_name=tool_name,
+                    tool_category=categorize_tool(tool_name),
+                    duration_seconds=duration,
+                    subagent_type=state.subagent_type,
+                    skill_name=state.skill_name,
+                    success=True,
+                    parameters=metadata if log_parameters else None,
+                )
+            )
+        except ImportError:
+            # DuckDB not available, skip
+            pass
+
+    return {}
+
+
 def create_audit_hook() -> HookMatcher:
     """Create a HookMatcher for audit logging.
 
@@ -274,12 +394,67 @@ def create_rate_limit_hook(requests_per_minute: int = 60) -> HookMatcher:
     return HookMatcher(hooks=[hook_with_limit])
 
 
+def create_observability_pre_hook(
+    log_parameters: bool = True,
+    redact_sensitive: bool = True,
+) -> HookMatcher:
+    """Create a HookMatcher for observability pre-hook.
+
+    Args:
+        log_parameters: Whether to log tool parameters
+        redact_sensitive: Whether to redact sensitive data
+
+    Returns:
+        HookMatcher configured for observability
+    """
+
+    async def hook_with_config(
+        input_data: HookInput,
+        tool_use_id: str | None,
+        context: HookContext,
+    ) -> HookJSONOutput:
+        return await observability_pre_hook(
+            input_data, tool_use_id, context, log_parameters, redact_sensitive
+        )
+
+    return HookMatcher(hooks=[hook_with_config])
+
+
+def create_observability_post_hook(
+    log_parameters: bool = True,
+    redact_sensitive: bool = True,
+) -> HookMatcher:
+    """Create a HookMatcher for observability post-hook.
+
+    Args:
+        log_parameters: Whether to log tool parameters
+        redact_sensitive: Whether to redact sensitive data
+
+    Returns:
+        HookMatcher configured for observability
+    """
+
+    async def hook_with_config(
+        input_data: HookInput,
+        tool_use_id: str | None,
+        context: HookContext,
+    ) -> HookJSONOutput:
+        return await observability_post_hook(
+            input_data, tool_use_id, context, log_parameters, redact_sensitive
+        )
+
+    return HookMatcher(hooks=[hook_with_config])
+
+
 def get_configured_hooks(
     audit_enabled: bool = True,
     permission_enabled: bool = True,
     rate_limit_enabled: bool = False,
     rate_limit_requests_per_minute: int = 60,
     deny_patterns: list[str] | None = None,
+    tool_tracking_enabled: bool = True,
+    tool_tracking_log_parameters: bool = True,
+    tool_tracking_redact_sensitive: bool = True,
 ) -> dict[str, list[HookMatcher]] | None:
     """Get configured hooks based on settings.
 
@@ -289,6 +464,9 @@ def get_configured_hooks(
         rate_limit_enabled: Enable rate limiting hook
         rate_limit_requests_per_minute: Rate limit threshold
         deny_patterns: Custom patterns to deny
+        tool_tracking_enabled: Enable observability/tool tracking hooks
+        tool_tracking_log_parameters: Log tool parameters (with redaction)
+        tool_tracking_redact_sensitive: Redact sensitive data in logs
 
     Returns:
         Dict of hooks for ClaudeAgentOptions, or None if no hooks enabled
@@ -306,6 +484,21 @@ def get_configured_hooks(
         # Audit on both pre and post for complete picture
         pre_tool_hooks.append(create_audit_hook())
         post_tool_hooks.append(create_audit_hook())
+
+    if tool_tracking_enabled:
+        # Observability hooks for metrics and DuckDB logging
+        pre_tool_hooks.append(
+            create_observability_pre_hook(
+                log_parameters=tool_tracking_log_parameters,
+                redact_sensitive=tool_tracking_redact_sensitive,
+            )
+        )
+        post_tool_hooks.append(
+            create_observability_post_hook(
+                log_parameters=tool_tracking_log_parameters,
+                redact_sensitive=tool_tracking_redact_sensitive,
+            )
+        )
 
     if not pre_tool_hooks and not post_tool_hooks:
         return None

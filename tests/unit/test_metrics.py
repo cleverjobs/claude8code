@@ -4,20 +4,29 @@ import pytest
 
 from src.core.metrics import (
     ACTIVE_SESSIONS,
+    AGENT_SPAWNS_TOTAL,
     CLAUDE_API_CALLS_TOTAL,
+    COMMAND_EXPANSIONS_TOTAL,
     ERRORS_TOTAL,
     PROMETHEUS_AVAILABLE,
     REQUEST_DURATION,
     REQUESTS_IN_PROGRESS,
     REQUESTS_TOTAL,
+    SKILL_INVOCATIONS_TOTAL,
     TOKEN_USAGE,
+    TOOL_INVOCATION_DURATION,
+    TOOL_INVOCATION_ERRORS,
+    TOOL_INVOCATIONS_TOTAL,
+    categorize_tool,
     get_metrics,
     get_metrics_content_type,
     init_app_info,
     is_prometheus_available,
     record_claude_api_call,
+    record_command_expansion,
     record_stream_completion,
     record_token_usage,
+    record_tool_invocation,
     update_active_sessions,
 )
 
@@ -224,3 +233,148 @@ class TestNoOpMetric:
         labeled.set(10)
         labeled.observe(1.5)
         metric.info({"key": "value"})
+
+
+class TestCategorizeTool:
+    """Test categorize_tool function."""
+
+    def test_task_is_agent(self) -> None:
+        """Test Task tool is categorized as agent."""
+        assert categorize_tool("Task") == "agent"
+
+    def test_skill_is_skill(self) -> None:
+        """Test Skill tool is categorized as skill."""
+        assert categorize_tool("Skill") == "skill"
+
+    def test_builtin_tools(self) -> None:
+        """Test built-in tools are categorized as builtin."""
+        builtin_tools = [
+            "Bash",
+            "Read",
+            "Write",
+            "Edit",
+            "WebFetch",
+            "WebSearch",
+            "Glob",
+            "Grep",
+            "NotebookEdit",
+            "TodoWrite",
+            "AskUserQuestion",
+        ]
+        for tool in builtin_tools:
+            assert categorize_tool(tool) == "builtin", f"Expected {tool} to be builtin"
+
+    def test_unknown_tool_is_builtin(self) -> None:
+        """Test unknown tools default to builtin."""
+        assert categorize_tool("UnknownTool") == "builtin"
+
+
+class TestRecordToolInvocation:
+    """Test record_tool_invocation function."""
+
+    def test_records_without_crash(self) -> None:
+        """Test recording doesn't crash."""
+        record_tool_invocation(tool_name="Read")
+
+    def test_records_with_duration(self) -> None:
+        """Test recording with duration."""
+        record_tool_invocation(tool_name="Bash", duration=1.5)
+
+    def test_records_with_error(self) -> None:
+        """Test recording with error type."""
+        record_tool_invocation(
+            tool_name="Write",
+            error_type="PermissionError",
+        )
+
+    def test_records_task_with_subagent(self) -> None:
+        """Test recording Task tool with subagent_type."""
+        record_tool_invocation(
+            tool_name="Task",
+            duration=5.0,
+            subagent_type="Explore",
+        )
+
+    def test_records_skill_with_skill_name(self) -> None:
+        """Test recording Skill tool with skill_name."""
+        record_tool_invocation(
+            tool_name="Skill",
+            duration=2.0,
+            skill_name="commit",
+        )
+
+    def test_records_all_parameters(self) -> None:
+        """Test recording with all parameters."""
+        record_tool_invocation(
+            tool_name="Task",
+            duration=10.0,
+            error_type=None,
+            subagent_type="Plan",
+            skill_name=None,
+        )
+
+
+class TestRecordCommandExpansion:
+    """Test record_command_expansion function."""
+
+    def test_records_without_crash(self) -> None:
+        """Test recording doesn't crash."""
+        record_command_expansion("commit")
+
+    def test_records_various_commands(self) -> None:
+        """Test recording various command names."""
+        commands = ["commit", "help", "review-pr", "custom-command"]
+        for cmd in commands:
+            record_command_expansion(cmd)
+
+
+class TestToolInvocationMetricObjects:
+    """Test tool invocation metric objects have expected interfaces."""
+
+    def test_tool_invocations_total_interface(self) -> None:
+        """Test TOOL_INVOCATIONS_TOTAL has expected interface."""
+        labeled = TOOL_INVOCATIONS_TOTAL.labels(tool_name="Read", tool_category="builtin")
+        assert hasattr(labeled, "inc")
+
+    def test_tool_invocation_duration_interface(self) -> None:
+        """Test TOOL_INVOCATION_DURATION has expected interface."""
+        labeled = TOOL_INVOCATION_DURATION.labels(tool_name="Bash", tool_category="builtin")
+        assert hasattr(labeled, "observe")
+
+    def test_tool_invocation_errors_interface(self) -> None:
+        """Test TOOL_INVOCATION_ERRORS has expected interface."""
+        labeled = TOOL_INVOCATION_ERRORS.labels(
+            tool_name="Write", tool_category="builtin", error_type="IOError"
+        )
+        assert hasattr(labeled, "inc")
+
+    def test_agent_spawns_total_interface(self) -> None:
+        """Test AGENT_SPAWNS_TOTAL has expected interface."""
+        labeled = AGENT_SPAWNS_TOTAL.labels(subagent_type="Explore")
+        assert hasattr(labeled, "inc")
+
+    def test_skill_invocations_total_interface(self) -> None:
+        """Test SKILL_INVOCATIONS_TOTAL has expected interface."""
+        labeled = SKILL_INVOCATIONS_TOTAL.labels(skill_name="commit")
+        assert hasattr(labeled, "inc")
+
+    def test_command_expansions_total_interface(self) -> None:
+        """Test COMMAND_EXPANSIONS_TOTAL has expected interface."""
+        labeled = COMMAND_EXPANSIONS_TOTAL.labels(command_name="help")
+        assert hasattr(labeled, "inc")
+
+
+class TestToolMetricsGracefulDegradation:
+    """Test graceful degradation for tool metrics."""
+
+    def test_tool_metrics_work_without_crashing(self) -> None:
+        """Test all tool metric operations work without crashing."""
+        # This test passes if no exceptions are raised
+        TOOL_INVOCATIONS_TOTAL.labels(tool_name="Test", tool_category="builtin").inc()
+        TOOL_INVOCATION_DURATION.labels(tool_name="Test", tool_category="builtin").observe(0.5)
+        TOOL_INVOCATION_ERRORS.labels(
+            tool_name="Test", tool_category="builtin", error_type="TestError"
+        ).inc()
+        AGENT_SPAWNS_TOTAL.labels(subagent_type="TestAgent").inc()
+        SKILL_INVOCATIONS_TOTAL.labels(skill_name="test-skill").inc()
+        COMMAND_EXPANSIONS_TOTAL.labels(command_name="test-cmd").inc()

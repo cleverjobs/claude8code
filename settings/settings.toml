@@ -40,6 +40,10 @@ rate_limit_requests_per_minute = 60
 # Custom deny patterns (regex) for permission hook
 # Leave empty to use default patterns (blocks rm -rf /, fork bombs, etc.)
 deny_patterns = []
+# Tool invocation tracking for observability (metrics + DuckDB + Loki logs)
+tool_tracking_enabled = true
+tool_tracking_log_parameters = true  # Log tool parameters (with redaction)
+tool_tracking_redact_sensitive = true  # Redact sensitive patterns (passwords, tokens, keys)
 
 [security]
 cors_origins = ["*"]
@@ -54,3 +58,6 @@ clear_on_release = true  # Always clear context between requests (safety)
 metrics_enabled = true
 access_logs_enabled = true
 access_logs_path = "data/access_logs.duckdb"
+# Structured logging for Loki
+structured_logging_enabled = true
+log_format = "json"  # "json" for Loki/production, "console" for development

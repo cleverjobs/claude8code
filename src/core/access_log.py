@@ -80,6 +80,36 @@ CREATE INDEX IF NOT EXISTS idx_access_logs_request_id ON access_logs(request_id)
 """
 
 
+# SQL schema for tool invocations table
+TOOL_INVOCATIONS_SCHEMA = """
+CREATE SEQUENCE IF NOT EXISTS tool_invocations_id_seq;
+
+CREATE TABLE IF NOT EXISTS tool_invocations (
+    id INTEGER PRIMARY KEY DEFAULT nextval('tool_invocations_id_seq'),
+    tool_use_id VARCHAR NOT NULL,
+    session_id VARCHAR NOT NULL,
+    request_id VARCHAR,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    tool_name VARCHAR(64) NOT NULL,
+    tool_category VARCHAR(16),
+    subagent_type VARCHAR(128),
+    skill_name VARCHAR(128),
+    duration_seconds FLOAT,
+    success BOOLEAN DEFAULT TRUE,
+    error_type VARCHAR(128),
+    parameters JSON
+);
+
+-- Indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_timestamp ON tool_invocations(timestamp);
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_tool_name ON tool_invocations(tool_name);
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_session_id ON tool_invocations(session_id);
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_tool_use_id ON tool_invocations(tool_use_id);
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_subagent_type ON tool_invocations(subagent_type);
+CREATE INDEX IF NOT EXISTS idx_tool_invocations_skill_name ON tool_invocations(skill_name);
+"""
+
+
 class AccessLogWriter:
     """Writes access logs to DuckDB.
 
@@ -114,6 +144,7 @@ class AccessLogWriter:
 
         self._conn: Any = None
         self._queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._tool_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._flush_task: asyncio.Task[None] | None = None
         self._running = False
 
@@ -133,6 +164,7 @@ class AccessLogWriter:
         try:
             self._conn = duckdb.connect(str(self._db_path))
             self._conn.execute(ACCESS_LOGS_SCHEMA)
+            self._conn.execute(TOOL_INVOCATIONS_SCHEMA)
             logger.info("Access log database initialized: %s", self._db_path)
         except Exception as e:
             logger.error("Failed to initialize access log database: %s", e)
@@ -160,6 +192,7 @@ class AccessLogWriter:
 
         # Flush remaining logs
         await self._flush()
+        await self._flush_tool_invocations()
 
         # Close connection
         if self._conn:
@@ -202,12 +235,68 @@ class AccessLogWriter:
         if self._queue.qsize() >= self._batch_size:
             await self._flush()
 
+    async def log_tool_invocation(
+        self,
+        tool_use_id: str,
+        session_id: str,
+        tool_name: str,
+        tool_category: str,
+        duration_seconds: float | None = None,
+        subagent_type: str | None = None,
+        skill_name: str | None = None,
+        success: bool = True,
+        error_type: str | None = None,
+        parameters: dict[str, Any] | None = None,
+        request_id: str | None = None,
+    ) -> None:
+        """Log a tool invocation.
+
+        Args:
+            tool_use_id: Unique ID for this tool invocation
+            session_id: Session identifier
+            tool_name: Name of the tool invoked
+            tool_category: Category (agent, skill, builtin)
+            duration_seconds: Duration of invocation
+            subagent_type: For Task tool, the subagent type
+            skill_name: For Skill tool, the skill name
+            success: Whether invocation succeeded
+            error_type: Error type if failed
+            parameters: Sanitized tool parameters (JSON)
+            request_id: Optional request ID for correlation
+        """
+        if not self._running or not DUCKDB_AVAILABLE:
+            return
+
+        import json
+
+        record = {
+            "tool_use_id": tool_use_id,
+            "session_id": session_id,
+            "request_id": request_id,
+            "timestamp": datetime.now(),
+            "tool_name": tool_name,
+            "tool_category": tool_category,
+            "subagent_type": subagent_type,
+            "skill_name": skill_name,
+            "duration_seconds": duration_seconds,
+            "success": success,
+            "error_type": error_type,
+            "parameters": json.dumps(parameters) if parameters else None,
+        }
+
+        await self._tool_queue.put(record)
+
+        # Flush if batch is full
+        if self._tool_queue.qsize() >= self._batch_size:
+            await self._flush_tool_invocations()
+
     async def _flush_loop(self) -> None:
         """Background task to flush logs periodically."""
         while self._running:
             try:
                 await asyncio.sleep(self._flush_interval)
                 await self._flush()
+                await self._flush_tool_invocations()
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -263,6 +352,53 @@ class AccessLogWriter:
         except Exception as e:
             logger.error("Failed to write access logs: %s", e)
 
+    async def _flush_tool_invocations(self) -> None:
+        """Flush queued tool invocation records to database."""
+        if not self._conn or self._tool_queue.empty():
+            return
+
+        records = []
+        try:
+            while not self._tool_queue.empty():
+                records.append(self._tool_queue.get_nowait())
+        except asyncio.QueueEmpty:
+            pass
+
+        if not records:
+            return
+
+        try:
+            # Batch insert tool invocations
+            self._conn.executemany(
+                """
+                INSERT INTO tool_invocations (
+                    tool_use_id, session_id, request_id, timestamp, tool_name,
+                    tool_category, subagent_type, skill_name, duration_seconds,
+                    success, error_type, parameters
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        r["tool_use_id"],
+                        r["session_id"],
+                        r["request_id"],
+                        r["timestamp"],
+                        r["tool_name"],
+                        r["tool_category"],
+                        r["subagent_type"],
+                        r["skill_name"],
+                        r["duration_seconds"],
+                        r["success"],
+                        r["error_type"],
+                        r["parameters"],
+                    )
+                    for r in records
+                ],
+            )
+            logger.debug("Flushed %d tool invocation records", len(records))
+        except Exception as e:
+            logger.error("Failed to write tool invocations: %s", e)
+
     def query(self, sql: str) -> list[dict[str, Any]]:
         """Execute a query and return results as list of dicts.
 
@@ -311,6 +447,41 @@ class AccessLogWriter:
                 """
             ).fetchall()
 
+            # Get tool invocation stats
+            tool_count = self._conn.execute("SELECT COUNT(*) FROM tool_invocations").fetchone()[0]
+
+            tool_stats = self._conn.execute(
+                """
+                SELECT tool_name, COUNT(*) as count
+                FROM tool_invocations
+                GROUP BY tool_name
+                ORDER BY count DESC
+                LIMIT 10
+                """
+            ).fetchall()
+
+            agent_stats = self._conn.execute(
+                """
+                SELECT subagent_type, COUNT(*) as count
+                FROM tool_invocations
+                WHERE subagent_type IS NOT NULL
+                GROUP BY subagent_type
+                ORDER BY count DESC
+                LIMIT 5
+                """
+            ).fetchall()
+
+            skill_stats = self._conn.execute(
+                """
+                SELECT skill_name, COUNT(*) as count
+                FROM tool_invocations
+                WHERE skill_name IS NOT NULL
+                GROUP BY skill_name
+                ORDER BY count DESC
+                LIMIT 5
+                """
+            ).fetchall()
+
             return {
                 "available": True,
                 "db_path": str(self._db_path),
@@ -321,6 +492,13 @@ class AccessLogWriter:
                 },
                 "top_models": [{"model": m, "count": c} for m, c in model_stats],
                 "queue_size": self._queue.qsize(),
+                "tool_invocations": {
+                    "total": tool_count,
+                    "by_tool": [{"tool": t, "count": c} for t, c in tool_stats],
+                    "by_agent": [{"agent": a, "count": c} for a, c in agent_stats],
+                    "by_skill": [{"skill": s, "count": c} for s, c in skill_stats],
+                    "queue_size": self._tool_queue.qsize(),
+                },
             }
         except Exception as e:
             return {"available": False, "reason": str(e)}
@@ -393,3 +571,49 @@ async def log_request(context: RequestContext, status_code: int = 200) -> None:
 def is_access_log_available() -> bool:
     """Check if access logging is available and enabled."""
     return DUCKDB_AVAILABLE and _writer is not None
+
+
+async def log_tool_invocation(
+    tool_use_id: str,
+    session_id: str,
+    tool_name: str,
+    tool_category: str,
+    duration_seconds: float | None = None,
+    subagent_type: str | None = None,
+    skill_name: str | None = None,
+    success: bool = True,
+    error_type: str | None = None,
+    parameters: dict[str, Any] | None = None,
+    request_id: str | None = None,
+) -> None:
+    """Log a tool invocation to the access log.
+
+    Convenience function that uses the global writer.
+
+    Args:
+        tool_use_id: Unique ID for this tool invocation
+        session_id: Session identifier
+        tool_name: Name of the tool invoked
+        tool_category: Category (agent, skill, builtin)
+        duration_seconds: Duration of invocation
+        subagent_type: For Task tool, the subagent type
+        skill_name: For Skill tool, the skill name
+        success: Whether invocation succeeded
+        error_type: Error type if failed
+        parameters: Sanitized tool parameters (JSON)
+        request_id: Optional request ID for correlation
+    """
+    if _writer:
+        await _writer.log_tool_invocation(
+            tool_use_id=tool_use_id,
+            session_id=session_id,
+            tool_name=tool_name,
+            tool_category=tool_category,
+            duration_seconds=duration_seconds,
+            subagent_type=subagent_type,
+            skill_name=skill_name,
+            success=success,
+            error_type=error_type,
+            parameters=parameters,
+            request_id=request_id,
+        )

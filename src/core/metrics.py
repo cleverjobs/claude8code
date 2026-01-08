@@ -126,6 +126,47 @@ STREAM_DURATION = Histogram(
     buckets=(1.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0, 600.0, float("inf")),
 )
 
+# Tool invocation metrics
+TOOL_INVOCATIONS_TOTAL = Counter(
+    "claude8code_tool_invocations_total",
+    "Total tool invocations",
+    ["tool_name", "tool_category"],  # tool_category: agent, skill, builtin
+)
+
+TOOL_INVOCATION_DURATION = Histogram(
+    "claude8code_tool_invocation_duration_seconds",
+    "Duration of tool invocations in seconds",
+    ["tool_name", "tool_category"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, float("inf")),
+)
+
+TOOL_INVOCATION_ERRORS = Counter(
+    "claude8code_tool_invocation_errors_total",
+    "Total tool invocation errors",
+    ["tool_name", "tool_category", "error_type"],
+)
+
+# Agent-specific metrics (Task tool)
+AGENT_SPAWNS_TOTAL = Counter(
+    "claude8code_agent_spawns_total",
+    "Total agent (subagent) spawns via Task tool",
+    ["subagent_type"],
+)
+
+# Skill-specific metrics (Skill tool)
+SKILL_INVOCATIONS_TOTAL = Counter(
+    "claude8code_skill_invocations_total",
+    "Total skill invocations via Skill tool",
+    ["skill_name"],
+)
+
+# Command expansion metrics (slash commands)
+COMMAND_EXPANSIONS_TOTAL = Counter(
+    "claude8code_command_expansions_total",
+    "Total command expansions (slash commands)",
+    ["command_name"],
+)
+
 
 def init_app_info(version: str = "0.1.0") -> None:
     """Initialize application info metric."""
@@ -243,3 +284,69 @@ def is_prometheus_available() -> bool:
         True if prometheus_client is installed
     """
     return PROMETHEUS_AVAILABLE
+
+
+def categorize_tool(tool_name: str) -> str:
+    """Categorize tool into agent, skill, or builtin.
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Category: "agent", "skill", or "builtin"
+    """
+    if tool_name == "Task":
+        return "agent"
+    elif tool_name == "Skill":
+        return "skill"
+    else:
+        return "builtin"
+
+
+def record_tool_invocation(
+    tool_name: str,
+    duration: float | None = None,
+    error_type: str | None = None,
+    subagent_type: str | None = None,
+    skill_name: str | None = None,
+) -> None:
+    """Record metrics for a tool invocation.
+
+    Args:
+        tool_name: Name of the tool invoked
+        duration: Duration of invocation in seconds (None for pre-hook)
+        error_type: Type of error if invocation failed
+        subagent_type: For Task tool, the subagent type
+        skill_name: For Skill tool, the skill name
+    """
+    category = categorize_tool(tool_name)
+
+    # Always increment invocation counter
+    TOOL_INVOCATIONS_TOTAL.labels(tool_name=tool_name, tool_category=category).inc()
+
+    # Record duration if provided (post-hook)
+    if duration is not None:
+        TOOL_INVOCATION_DURATION.labels(tool_name=tool_name, tool_category=category).observe(
+            duration
+        )
+
+    # Record error if occurred
+    if error_type:
+        TOOL_INVOCATION_ERRORS.labels(
+            tool_name=tool_name, tool_category=category, error_type=error_type
+        ).inc()
+
+    # Track specific agent/skill invocations
+    if tool_name == "Task" and subagent_type:
+        AGENT_SPAWNS_TOTAL.labels(subagent_type=subagent_type).inc()
+    elif tool_name == "Skill" and skill_name:
+        SKILL_INVOCATIONS_TOTAL.labels(skill_name=skill_name).inc()
+
+
+def record_command_expansion(command_name: str) -> None:
+    """Record metrics for a slash command expansion.
+
+    Args:
+        command_name: Name of the command that was expanded
+    """
+    COMMAND_EXPANSIONS_TOTAL.labels(command_name=command_name).inc()

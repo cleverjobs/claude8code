@@ -64,6 +64,10 @@ class HooksConfig(BaseModel):
     rate_limit_enabled: bool = False
     rate_limit_requests_per_minute: int = 60
     deny_patterns: list[str] = Field(default_factory=list)
+    # Tool tracking/observability hooks
+    tool_tracking_enabled: bool = True
+    tool_tracking_log_parameters: bool = True
+    tool_tracking_redact_sensitive: bool = True
 
 
 class ClaudeConfig(BaseModel):
@@ -101,6 +105,9 @@ class ObservabilityConfig(BaseModel):
     metrics_enabled: bool = True
     access_logs_enabled: bool = True
     access_logs_path: str = "data/access_logs.duckdb"
+    # Structured logging for Loki
+    structured_logging_enabled: bool = True
+    log_format: str = "json"  # "json" for Loki, "console" for development
 
 
 class TomlSettings(BaseModel):

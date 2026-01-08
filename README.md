@@ -657,6 +657,178 @@ Or via environment:
 export CLAUDE8CODE_CWD="/path/to/workspace"
 ```
 
+## How Extensions Work
+
+claude8code uses the Claude Agent SDK's native extension system. Here's how each extension type is loaded and invoked.
+
+### Extension Discovery
+
+All extensions are loaded from the mounted `workspace/` directory:
+
+```
+workspace/
+├── CLAUDE.md              # Project instructions (injected into system prompt)
+├── .mcp.json              # MCP server configuration
+└── .claude/
+    ├── settings.json      # SDK settings (hooks, permissions)
+    ├── commands/*.md      # Slash commands
+    ├── skills/*/SKILL.md  # Skills
+    └── agents/*.md        # Subagents
+```
+
+The Claude Agent SDK discovers these automatically via the `setting_sources` configuration.
+
+### Commands
+
+**Location**: `workspace/.claude/commands/*.md`
+
+**Format**: Plain markdown file
+
+**Invocation**: Send `/command-name` in message content:
+
+```bash
+# Invoke /test command
+curl -X POST http://localhost:8787/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-20250514",
+    "max_tokens": 4096,
+    "messages": [{"role": "user", "content": "/test"}]
+  }'
+
+# With arguments
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{"messages": [{"role": "user", "content": "/commit fix authentication bug"}]}'
+```
+
+### Skills
+
+**Location**: `workspace/.claude/skills/{skill-name}/SKILL.md`
+
+**Format**: YAML frontmatter + markdown
+```yaml
+---
+description: When to use this skill (SDK uses for auto-invocation)
+tools: Read, Grep, Glob
+model: sonnet
+---
+# Skill Name
+
+Instructions for the skill...
+```
+
+**Invocation**: Claude auto-invokes based on `description` match, or explicit mention:
+
+```bash
+# Implicit - Claude decides based on description
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{"messages": [{"role": "user", "content": "Generate API documentation for routes.py"}]}'
+
+# Explicit - mention skill by name
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{"messages": [{"role": "user", "content": "Use the api-docs skill to document the auth module"}]}'
+```
+
+### Agents (Subagents)
+
+**Location**: `workspace/.claude/agents/*.md`
+
+**Format**: YAML frontmatter + markdown
+```yaml
+---
+description: When to spawn this agent
+tools: Read, Grep, Glob
+model: sonnet
+---
+# Agent Name
+
+Full agent instructions (becomes the prompt)...
+```
+
+**Invocation**: Mention agent by name:
+
+```bash
+# Single agent
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{"messages": [{"role": "user", "content": "Use the code-reviewer agent to review auth.py"}]}'
+
+# Parallel agents
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{"messages": [{"role": "user", "content": "Spawn 3 exploration agents to analyze the codebase"}]}'
+```
+
+### Settings (Two Configuration Files)
+
+| File | Scope | Read By |
+|------|-------|---------|
+| `settings/settings.toml` | Server configuration | claude8code directly |
+| `workspace/.claude/settings.json` | SDK configuration | Claude Agent SDK via `setting_sources` |
+
+**settings/settings.toml** (server-level):
+```toml
+[claude.hooks]
+audit_enabled = true
+permission_enabled = true
+rate_limit_enabled = false
+
+[session]
+max_sessions = 100
+ttl_seconds = 3600
+```
+
+**workspace/.claude/settings.json** (SDK-level):
+```json
+{
+  "hooks": {
+    "PreToolUse": [{"matcher": "Bash", "command": "echo 'Executing: $COMMAND'"}]
+  },
+  "permissions": {
+    "allow": ["Read", "Glob", "Grep"],
+    "deny": []
+  }
+}
+```
+
+### CLAUDE.md (Project Instructions)
+
+**Location**: `workspace/CLAUDE.md`
+
+**Format**: Markdown
+
+**Behavior**: Automatically loaded and injected into system prompt as:
+```xml
+<project-instructions>
+{content of CLAUDE.md}
+</project-instructions>
+```
+
+No API action needed - always included if the file exists.
+
+### Memory & Sessions
+
+**Important**: claude8code is **stateless by design**. Each API request is independent.
+
+| Aspect | Behavior |
+|--------|----------|
+| Within single request | Full multi-turn via `messages` array |
+| Across requests | **No persistence** - context cleared for security |
+| CLAUDE.md | Re-read each request |
+| Extensions | Re-discovered each request |
+
+**Multi-turn within a request** - use the messages array:
+```bash
+curl -X POST http://localhost:8787/v1/messages \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Create a Python function to add numbers"},
+      {"role": "assistant", "content": "def add(a, b): return a + b"},
+      {"role": "user", "content": "Now add type hints"}
+    ]
+  }'
+```
+
+**Why no persistence?** Sessions are cleared between requests to prevent data leakage between users/requests. This is a security feature for multi-tenant API usage.
+
 ## Development
 
 ```bash

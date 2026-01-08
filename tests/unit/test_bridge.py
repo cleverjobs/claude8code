@@ -40,7 +40,7 @@ class TestBuildClaudeOptions:
         options = build_claude_options(request)
         assert options is not None
         # max_turns comes from settings (default is 10)
-        assert options.max_turns > 0
+        assert options.max_turns is not None and options.max_turns > 0
 
     def test_options_with_temperature(self) -> None:
         """Test options with temperature."""

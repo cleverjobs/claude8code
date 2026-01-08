@@ -183,6 +183,212 @@ class TestGracefulDegradation:
             await writer.log(ctx)
 
 
+class TestToolInvocationLogging:
+    """Test tool invocation logging."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_log_tool_invocation(self) -> None:
+        """Test logging a tool invocation and querying it back."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_123",
+                    session_id="sess_456",
+                    tool_name="Read",
+                    tool_category="builtin",
+                    duration_seconds=0.5,
+                    success=True,
+                )
+
+                # Force flush
+                await writer._flush_tool_invocations()
+
+                # Query to verify record was written
+                results = writer.query("SELECT * FROM tool_invocations")
+                assert len(results) == 1
+                assert results[0]["tool_use_id"] == "tool_123"
+                assert results[0]["session_id"] == "sess_456"
+                assert results[0]["tool_name"] == "Read"
+                assert results[0]["tool_category"] == "builtin"
+                assert results[0]["duration_seconds"] == 0.5
+                assert results[0]["success"] is True
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_log_tool_invocation_with_agent(self) -> None:
+        """Test logging Task tool with subagent_type."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_task_1",
+                    session_id="sess_789",
+                    tool_name="Task",
+                    tool_category="agent",
+                    duration_seconds=5.0,
+                    subagent_type="Explore",
+                    success=True,
+                )
+
+                await writer._flush_tool_invocations()
+
+                results = writer.query(
+                    "SELECT * FROM tool_invocations WHERE subagent_type = 'Explore'"
+                )
+                assert len(results) == 1
+                assert results[0]["tool_name"] == "Task"
+                assert results[0]["subagent_type"] == "Explore"
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_log_tool_invocation_with_skill(self) -> None:
+        """Test logging Skill tool with skill_name."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_skill_1",
+                    session_id="sess_skill",
+                    tool_name="Skill",
+                    tool_category="skill",
+                    duration_seconds=2.0,
+                    skill_name="commit",
+                    success=True,
+                )
+
+                await writer._flush_tool_invocations()
+
+                results = writer.query("SELECT * FROM tool_invocations WHERE skill_name = 'commit'")
+                assert len(results) == 1
+                assert results[0]["tool_name"] == "Skill"
+                assert results[0]["skill_name"] == "commit"
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_log_tool_invocation_with_error(self) -> None:
+        """Test logging tool invocation with error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_error_1",
+                    session_id="sess_error",
+                    tool_name="Write",
+                    tool_category="builtin",
+                    duration_seconds=0.1,
+                    success=False,
+                    error_type="PermissionError",
+                )
+
+                await writer._flush_tool_invocations()
+
+                results = writer.query("SELECT * FROM tool_invocations WHERE success = FALSE")
+                assert len(results) == 1
+                assert results[0]["success"] is False
+                assert results[0]["error_type"] == "PermissionError"
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_log_tool_invocation_with_parameters(self) -> None:
+        """Test logging tool invocation with JSON parameters."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                params = {"file_path": "/test/file.py", "content_length": 100}
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_params_1",
+                    session_id="sess_params",
+                    tool_name="Write",
+                    tool_category="builtin",
+                    parameters=params,
+                )
+
+                await writer._flush_tool_invocations()
+
+                import json
+
+                results = writer.query("SELECT parameters FROM tool_invocations")
+                assert len(results) == 1
+                stored_params = json.loads(results[0]["parameters"])
+                assert stored_params["file_path"] == "/test/file.py"
+                assert stored_params["content_length"] == 100
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    @pytest.mark.skipif(not DUCKDB_AVAILABLE, reason="DuckDB not installed")
+    async def test_get_stats_includes_tool_invocations(self) -> None:
+        """Test get_stats includes tool invocation statistics."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path, batch_size=1)
+
+            await writer.start()
+
+            try:
+                # Log a tool invocation
+                await writer.log_tool_invocation(
+                    tool_use_id="tool_stats_1",
+                    session_id="sess_stats",
+                    tool_name="Read",
+                    tool_category="builtin",
+                )
+                await writer._flush_tool_invocations()
+
+                stats = writer.get_stats()
+                assert "tool_invocations" in stats
+                assert stats["tool_invocations"]["total"] >= 0
+                assert "by_tool" in stats["tool_invocations"]
+                assert "queue_size" in stats["tool_invocations"]
+            finally:
+                await writer.stop()
+
+    @pytest.mark.asyncio
+    async def test_log_tool_invocation_graceful_when_not_started(self) -> None:
+        """Test tool invocation logging is graceful when not started."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "test.duckdb"
+            writer = AccessLogWriter(db_path=db_path)
+
+            # Should not raise even when not started
+            await writer.log_tool_invocation(
+                tool_use_id="ignored",
+                session_id="ignored",
+                tool_name="Read",
+                tool_category="builtin",
+            )
+
+
 class TestGlobalWriter:
     """Test global writer functions."""
 

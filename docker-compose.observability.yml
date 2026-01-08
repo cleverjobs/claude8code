@@ -1,7 +1,7 @@
 # ==============================================================================
 # claude8code - Observability Extension
 # ==============================================================================
-# Adds Prometheus + Grafana monitoring to claude8code
+# Adds Prometheus + Grafana + Loki monitoring to claude8code
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
@@ -9,6 +9,7 @@
 # Access:
 #   - Prometheus: http://localhost:9090
 #   - Grafana: http://localhost:3000 (admin/admin)
+#   - Loki: http://localhost:3100
 #   - Metrics: http://localhost:8787/metrics
 # ==============================================================================
 
@@ -56,6 +57,33 @@ services:
     restart: unless-stopped
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - claude8code-network
+
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: claude8code-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - claude8code-network
+
+  promtail:
+    image: grafana/promtail:2.9.3
+    container_name: claude8code-promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
     networks:
       - claude8code-network
 
@@ -66,3 +94,4 @@ networks:
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:

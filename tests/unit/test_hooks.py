@@ -1,6 +1,7 @@
 """Unit tests for SDK hooks module."""
 
 import time
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,9 +13,13 @@ from src.sdk.hooks import (
     audit_hook,
     clear_rate_limit_state,
     create_audit_hook,
+    create_observability_post_hook,
+    create_observability_pre_hook,
     create_permission_hook,
     create_rate_limit_hook,
     get_configured_hooks,
+    observability_post_hook,
+    observability_pre_hook,
     permission_hook,
     rate_limit_hook,
 )
@@ -76,7 +81,7 @@ class TestAuditHook:
         }
         context = MagicMock()
 
-        result = await audit_hook(input_data, "tool_123", context)
+        result = await audit_hook(cast(Any, input_data), "tool_123", context)
         assert result == {}
 
     @pytest.mark.asyncio
@@ -93,7 +98,7 @@ class TestAuditHook:
         context = MagicMock()
 
         with caplog.at_level(logging.INFO, logger="src.sdk.hooks"):
-            await audit_hook(input_data, "tool_123", context)
+            await audit_hook(cast(Any, input_data), "tool_123", context)
         assert "AUDIT" in caplog.text
         assert "Bash" in caplog.text
 
@@ -112,7 +117,7 @@ class TestAuditHook:
             context = MagicMock()
 
             with caplog.at_level(logging.INFO, logger="src.sdk.hooks"):
-                await audit_hook(input_data, "tool_123", context)
+                await audit_hook(cast(Any, input_data), "tool_123", context)
             assert "AUDIT" in caplog.text
 
     @pytest.mark.asyncio
@@ -129,7 +134,7 @@ class TestAuditHook:
         context = MagicMock()
 
         with caplog.at_level(logging.INFO, logger="src.sdk.hooks"):
-            await audit_hook(input_data, "tool_123", context)
+            await audit_hook(cast(Any, input_data), "tool_123", context)
         assert "AUDIT" in caplog.text
 
     @pytest.mark.asyncio
@@ -138,7 +143,7 @@ class TestAuditHook:
         input_data: dict[str, object] = {}
         context = MagicMock()
 
-        result = await audit_hook(input_data, None, context)
+        result = await audit_hook(cast(Any, input_data), None, context)
         assert result == {}
 
 
@@ -154,7 +159,7 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
         assert result == {}
 
     @pytest.mark.asyncio
@@ -166,9 +171,9 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_blocks_rm_rf_home(self) -> None:
@@ -179,9 +184,9 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_blocks_curl_pipe_bash(self) -> None:
@@ -192,9 +197,9 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_blocks_sensitive_file_write(self) -> None:
@@ -206,9 +211,9 @@ class TestPermissionHook:
             }
             context = MagicMock()
 
-            result = await permission_hook(input_data, "tool_123", context)
-            assert "hookSpecificOutput" in result
-            assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+            result = await permission_hook(cast(Any, input_data), "tool_123", context)
+            assert "hookSpecificOutput" in cast(Any, result)
+            assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_blocks_env_file_write(self) -> None:
@@ -219,9 +224,9 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_allows_normal_file_write(self) -> None:
@@ -232,7 +237,7 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
         assert result == {}
 
     @pytest.mark.asyncio
@@ -245,10 +250,10 @@ class TestPermissionHook:
         context = MagicMock()
 
         result = await permission_hook(
-            input_data, "tool_123", context, deny_patterns=["dangerous_command"]
+            cast(Any, input_data), "tool_123", context, deny_patterns=["dangerous_command"]
         )
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_non_bash_tool_not_checked(self) -> None:
@@ -259,7 +264,7 @@ class TestPermissionHook:
         }
         context = MagicMock()
 
-        result = await permission_hook(input_data, "tool_123", context)
+        result = await permission_hook(cast(Any, input_data), "tool_123", context)
         assert result == {}
 
 
@@ -276,7 +281,9 @@ class TestRateLimitHook:
         input_data = {"session_id": "test_session"}
         context = MagicMock()
 
-        result = await rate_limit_hook(input_data, "tool_123", context, requests_per_minute=10)
+        result = await rate_limit_hook(
+            cast(Any, input_data), "tool_123", context, requests_per_minute=10
+        )
         assert result == {}
 
     @pytest.mark.asyncio
@@ -287,12 +294,16 @@ class TestRateLimitHook:
 
         # Make 10 requests
         for _ in range(10):
-            await rate_limit_hook(input_data, "tool_123", context, requests_per_minute=10)
+            await rate_limit_hook(
+                cast(Any, input_data), "tool_123", context, requests_per_minute=10
+            )
 
         # 11th request should be blocked
-        result = await rate_limit_hook(input_data, "tool_123", context, requests_per_minute=10)
-        assert "hookSpecificOutput" in result
-        assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+        result = await rate_limit_hook(
+            cast(Any, input_data), "tool_123", context, requests_per_minute=10
+        )
+        assert "hookSpecificOutput" in cast(Any, result)
+        assert cast(Any, result)["hookSpecificOutput"]["permissionDecision"] == "deny"
 
     @pytest.mark.asyncio
     async def test_different_sessions_independent(self) -> None:
@@ -302,12 +313,12 @@ class TestRateLimitHook:
         # Max out session 1
         for _ in range(10):
             await rate_limit_hook(
-                {"session_id": "session1"}, "tool_123", context, requests_per_minute=10
+                cast(Any, {"session_id": "session1"}), "tool_123", context, requests_per_minute=10
             )
 
         # Session 2 should still be allowed
         result = await rate_limit_hook(
-            {"session_id": "session2"}, "tool_123", context, requests_per_minute=10
+            cast(Any, {"session_id": "session2"}), "tool_123", context, requests_per_minute=10
         )
         assert result == {}
 
@@ -390,6 +401,7 @@ class TestGetConfiguredHooks:
             audit_enabled=True,
             permission_enabled=True,
             rate_limit_enabled=True,
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is not None
@@ -404,6 +416,7 @@ class TestGetConfiguredHooks:
             audit_enabled=True,
             permission_enabled=False,
             rate_limit_enabled=False,
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is not None
@@ -416,6 +429,7 @@ class TestGetConfiguredHooks:
             audit_enabled=False,
             permission_enabled=True,
             rate_limit_enabled=False,
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is not None
@@ -428,9 +442,26 @@ class TestGetConfiguredHooks:
             audit_enabled=False,
             permission_enabled=False,
             rate_limit_enabled=False,
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is None
+
+    def test_tool_tracking_enabled(self) -> None:
+        """Test with tool tracking (observability) enabled."""
+        hooks = get_configured_hooks(
+            audit_enabled=False,
+            permission_enabled=False,
+            rate_limit_enabled=False,
+            tool_tracking_enabled=True,
+        )
+
+        assert hooks is not None
+        assert "PreToolUse" in hooks
+        assert "PostToolUse" in hooks
+        # Observability pre and post hooks
+        assert len(hooks["PreToolUse"]) == 1
+        assert len(hooks["PostToolUse"]) == 1
 
     def test_custom_rate_limit(self) -> None:
         """Test with custom rate limit."""
@@ -439,6 +470,7 @@ class TestGetConfiguredHooks:
             permission_enabled=False,
             rate_limit_enabled=True,
             rate_limit_requests_per_minute=100,
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is not None
@@ -451,6 +483,7 @@ class TestGetConfiguredHooks:
             permission_enabled=True,
             rate_limit_enabled=False,
             deny_patterns=["custom"],
+            tool_tracking_enabled=False,  # Disable for legacy test
         )
 
         assert hooks is not None
@@ -492,3 +525,278 @@ class TestDefaultDenyPatterns:
 
         for pattern in DEFAULT_DENY_PATTERNS:
             re.compile(pattern)  # Should not raise
+
+
+class TestObservabilityPreHook:
+    """Test observability_pre_hook function."""
+
+    def setup_method(self) -> None:
+        """Clear pending invocations before each test."""
+        from src.core.tool_observability import clear_pending_invocations
+
+        clear_pending_invocations()
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_dict(self) -> None:
+        """Test that pre-hook returns empty dict."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/test/file.py"},
+            "session_id": "sess_123",
+        }
+        context = MagicMock()
+
+        result = await observability_pre_hook(cast(Any, input_data), "tool_123", context)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_starts_tracking(self) -> None:
+        """Test that pre-hook starts tracking invocation."""
+        from src.core.tool_observability import get_pending_invocations
+
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+            "session_id": "sess_456",
+        }
+        context = MagicMock()
+
+        await observability_pre_hook(cast(Any, input_data), "tool_track_test", context)
+
+        pending = get_pending_invocations()
+        assert "tool_track_test" in pending
+        assert pending["tool_track_test"].tool_name == "Bash"
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_tool_use_id(self) -> None:
+        """Test graceful handling of missing tool_use_id."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {},
+            "session_id": "sess_123",
+        }
+        context = MagicMock()
+
+        result = await observability_pre_hook(cast(Any, input_data), None, context)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_task_tool(self) -> None:
+        """Test pre-hook extracts subagent_type for Task tool."""
+        from src.core.tool_observability import get_pending_invocations
+
+        input_data = {
+            "tool_name": "Task",
+            "tool_input": {"subagent_type": "Explore", "prompt": "test"},
+            "session_id": "sess_789",
+        }
+        context = MagicMock()
+
+        await observability_pre_hook(cast(Any, input_data), "tool_task_1", context)
+
+        pending = get_pending_invocations()
+        assert pending["tool_task_1"].subagent_type == "Explore"
+
+    @pytest.mark.asyncio
+    async def test_handles_skill_tool(self) -> None:
+        """Test pre-hook extracts skill_name for Skill tool."""
+        from src.core.tool_observability import get_pending_invocations
+
+        input_data = {
+            "tool_name": "Skill",
+            "tool_input": {"skill": "commit", "args": "-m test"},
+            "session_id": "sess_skill",
+        }
+        context = MagicMock()
+
+        await observability_pre_hook(cast(Any, input_data), "tool_skill_1", context)
+
+        pending = get_pending_invocations()
+        assert pending["tool_skill_1"].skill_name == "commit"
+
+
+class TestObservabilityPostHook:
+    """Test observability_post_hook function."""
+
+    def setup_method(self) -> None:
+        """Clear pending invocations before each test."""
+        from src.core.tool_observability import clear_pending_invocations
+
+        clear_pending_invocations()
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_dict(self) -> None:
+        """Test that post-hook returns empty dict."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/test/file.py"},
+            "session_id": "sess_123",
+        }
+        context = MagicMock()
+
+        result = await observability_post_hook(cast(Any, input_data), "tool_123", context)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_completes_tracking(self) -> None:
+        """Test that post-hook completes tracking."""
+        from src.core.tool_observability import get_pending_invocations
+
+        # First start tracking
+        input_data = {
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+            "session_id": "sess_complete",
+        }
+        context = MagicMock()
+
+        await observability_pre_hook(cast(Any, input_data), "tool_complete_1", context)
+        assert "tool_complete_1" in get_pending_invocations()
+
+        # Now complete
+        await observability_post_hook(cast(Any, input_data), "tool_complete_1", context)
+        assert "tool_complete_1" not in get_pending_invocations()
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_tool_use_id(self) -> None:
+        """Test graceful handling of missing tool_use_id."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {},
+            "session_id": "sess_123",
+        }
+        context = MagicMock()
+
+        result = await observability_post_hook(cast(Any, input_data), None, context)
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_handles_unknown_tool_use_id(self) -> None:
+        """Test graceful handling of unknown tool_use_id."""
+        input_data = {
+            "tool_name": "Read",
+            "tool_input": {},
+            "session_id": "sess_123",
+        }
+        context = MagicMock()
+
+        # Post hook for non-existent pre-hook
+        result = await observability_post_hook(cast(Any, input_data), "unknown_tool", context)
+        assert result == {}
+
+
+class TestCreateObservabilityHooks:
+    """Test observability hook creation functions."""
+
+    def setup_method(self) -> None:
+        """Clear pending invocations before each test."""
+        from src.core.tool_observability import clear_pending_invocations
+
+        clear_pending_invocations()
+
+    def test_create_observability_pre_hook(self) -> None:
+        """Test create_observability_pre_hook returns HookMatcher."""
+        hook = create_observability_pre_hook()
+        assert hook is not None
+        assert hasattr(hook, "hooks")
+        assert len(hook.hooks) == 1
+
+    def test_create_observability_post_hook(self) -> None:
+        """Test create_observability_post_hook returns HookMatcher."""
+        hook = create_observability_post_hook()
+        assert hook is not None
+        assert hasattr(hook, "hooks")
+        assert len(hook.hooks) == 1
+
+    def test_create_pre_hook_with_config(self) -> None:
+        """Test pre-hook creation with custom config."""
+        hook = create_observability_pre_hook(
+            log_parameters=False,
+            redact_sensitive=False,
+        )
+        assert hook is not None
+
+    def test_create_post_hook_with_config(self) -> None:
+        """Test post-hook creation with custom config."""
+        hook = create_observability_post_hook(
+            log_parameters=True,
+            redact_sensitive=True,
+        )
+        assert hook is not None
+
+    @pytest.mark.asyncio
+    async def test_pre_hook_function_callable(self) -> None:
+        """Test that created pre-hook is callable."""
+        hook_matcher = create_observability_pre_hook()
+        hook_func = hook_matcher.hooks[0]
+
+        mock_input = MagicMock()
+        mock_input.tool_name = "Read"
+        mock_input.tool_input = {"file_path": "/test.py"}
+
+        mock_context = MagicMock()
+
+        result = await hook_func(mock_input, "tool_callable_1", mock_context)
+        assert isinstance(result, dict)
+
+    @pytest.mark.asyncio
+    async def test_post_hook_function_callable(self) -> None:
+        """Test that created post-hook is callable."""
+        hook_matcher = create_observability_post_hook()
+        hook_func = hook_matcher.hooks[0]
+
+        mock_input = MagicMock()
+        mock_input.tool_name = "Read"
+        mock_input.tool_input = {"file_path": "/test.py"}
+
+        mock_context = MagicMock()
+
+        result = await hook_func(mock_input, "tool_callable_2", mock_context)
+        assert isinstance(result, dict)
+
+
+class TestGetConfiguredHooksWithToolTracking:
+    """Test get_configured_hooks with tool tracking options."""
+
+    def test_tool_tracking_with_all_options(self) -> None:
+        """Test tool tracking with all configuration options."""
+        hooks = get_configured_hooks(
+            audit_enabled=False,
+            permission_enabled=False,
+            rate_limit_enabled=False,
+            tool_tracking_enabled=True,
+            tool_tracking_log_parameters=True,
+            tool_tracking_redact_sensitive=True,
+        )
+
+        assert hooks is not None
+        assert "PreToolUse" in hooks
+        assert "PostToolUse" in hooks
+        assert len(hooks["PreToolUse"]) == 1
+        assert len(hooks["PostToolUse"]) == 1
+
+    def test_tool_tracking_disabled_by_default(self) -> None:
+        """Test that tool tracking is disabled when explicitly set to False."""
+        hooks = get_configured_hooks(
+            audit_enabled=False,
+            permission_enabled=False,
+            rate_limit_enabled=False,
+            tool_tracking_enabled=False,
+        )
+
+        assert hooks is None
+
+    def test_combined_hooks_with_tool_tracking(self) -> None:
+        """Test combined hooks with tool tracking."""
+        hooks = get_configured_hooks(
+            audit_enabled=True,
+            permission_enabled=True,
+            rate_limit_enabled=False,
+            tool_tracking_enabled=True,
+        )
+
+        assert hooks is not None
+        # Permission + audit + tool_tracking = 3 pre hooks
+        assert len(hooks["PreToolUse"]) == 3
+        # Audit + tool_tracking = 2 post hooks
+        assert len(hooks["PostToolUse"]) == 2

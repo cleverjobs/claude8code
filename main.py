@@ -102,8 +102,8 @@ n8n Integration:
 ║                        claude8code                            ║
 ║     Anthropic-compatible API powered by Claude Agent SDK      ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  Endpoint: http://{host}:{port}/v1/messages{' ' * (26 - len(str(port)))}║
-║  Docs:     http://{host}:{port}/docs{' ' * (33 - len(str(port)))}║
+║  Endpoint: http://{host}:{port}/v1/messages{" " * (26 - len(str(port)))}║
+║  Docs:     http://{host}:{port}/docs{" " * (33 - len(str(port)))}║
 ╚═══════════════════════════════════════════════════════════════╝
     """)
 

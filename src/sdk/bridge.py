@@ -331,6 +331,9 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
         rate_limit_enabled=hooks_config.rate_limit_enabled,
         rate_limit_requests_per_minute=hooks_config.rate_limit_requests_per_minute,
         deny_patterns=hooks_config.deny_patterns if hooks_config.deny_patterns else None,
+        tool_tracking_enabled=hooks_config.tool_tracking_enabled,
+        tool_tracking_log_parameters=hooks_config.tool_tracking_log_parameters,
+        tool_tracking_redact_sensitive=hooks_config.tool_tracking_redact_sensitive,
     )
     if hooks:
         options.hooks = cast(dict[HookEvent, list[HookMatcher]], hooks)
