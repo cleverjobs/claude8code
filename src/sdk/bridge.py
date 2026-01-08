@@ -70,7 +70,11 @@ from ..models import (  # noqa: E402
 from ..models import TextBlock as ResponseTextBlock  # noqa: E402
 from ..models import ThinkingBlock as ResponseThinkingBlock  # noqa: E402
 from .hooks import get_configured_hooks  # noqa: E402
-from .workspace import build_system_context, expand_command, get_workspace  # noqa: E402
+from .workspace import (  # noqa: E402
+    expand_command,
+    get_project_instructions,
+    get_workspace,
+)
 
 # Model mapping: n8n model names -> Claude Agent SDK models
 MODEL_MAP = {
@@ -239,11 +243,19 @@ def build_prompt_from_messages(request: MessagesRequest) -> str:
 
 
 def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
-    """Build ClaudeAgentOptions from the request and server settings."""
+    """Build ClaudeAgentOptions from the request and server settings.
 
-    # Load workspace configuration
+    NOTE: Skills, agents, and commands are handled natively by the Claude Agent SDK
+    via the setting_sources configuration. Only CLAUDE.md project instructions are
+    injected into the system prompt. The SDK automatically:
+    - Discovers extensions from workspace/.claude/{skills,agents,commands}
+    - Provides Skill and Task tools to Claude
+    - Handles invocation when Claude calls these tools
+    """
+    # Load workspace for CLAUDE.md project instructions only
+    # Skills/agents/commands are loaded by SDK via setting_sources
     workspace = get_workspace(settings.cwd)
-    workspace_context = build_system_context(workspace)
+    project_instructions = get_project_instructions(workspace)
 
     # Determine system prompt
     system_prompt: str | SystemPromptPreset | None = None
@@ -262,13 +274,13 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
                 block.get("text", "") for block in request.system if block.get("type") == "text"
             )
 
-    # Inject workspace context into system prompt
-    if workspace_context:
+    # Inject CLAUDE.md project instructions into system prompt (not skills/agents)
+    if project_instructions:
         if system_prompt is None:
-            system_prompt = workspace_context
+            system_prompt = project_instructions
         elif isinstance(system_prompt, str):
-            system_prompt = f"{system_prompt}\n\n{workspace_context}"
-        # Note: SystemPromptPreset doesn't support appending, workspace context
+            system_prompt = f"{system_prompt}\n\n{project_instructions}"
+        # Note: SystemPromptPreset doesn't support appending, project instructions
         # will be applied separately via the prompt if using preset
 
     # Build options
@@ -290,6 +302,12 @@ def build_claude_options(request: MessagesRequest) -> ClaudeAgentOptions:
         if not cwd_path.is_absolute():
             cwd_path = cwd_path.resolve()
         options.cwd = cwd_path
+
+    # Set MCP servers from workspace configuration
+    if workspace.mcp_config:
+        mcp_servers = workspace.mcp_config.get("mcpServers", {})
+        if mcp_servers:
+            options.mcp_servers = mcp_servers
 
     # Set allowed tools
     allowed = settings.get_allowed_tools_list()

@@ -1,12 +1,15 @@
 # ==============================================================================
-# claude8code - Standalone Testing Environment
+# claude8code - Base Docker Compose Configuration
 # ==============================================================================
-# Run the Anthropic-compatible API server for local testing
+# Anthropic-compatible API server powered by Claude Agent SDK
 #
-# Usage:
-#   docker compose up -d      # Start server
-#   docker compose logs -f    # View logs
-#   curl http://localhost:8787/health  # Test health endpoint
+# Usage (standalone):
+#   docker compose up -d
+#   curl http://localhost:8787/health
+#
+# Usage (with extensions):
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.mcp-example.yml up -d
 # ==============================================================================
 
 services:
@@ -16,7 +19,7 @@ services:
     ports:
       - "8787:8787"
     volumes:
-      # Mount workspace for file operations and extensions
+      # Mount workspace for file operations, skills, agents, commands, and MCP config
       - ./workspace:/home/claude8code/workspace
     environment:
       - CLAUDE8CODE_HOST=0.0.0.0

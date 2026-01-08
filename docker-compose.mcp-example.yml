@@ -1,0 +1,93 @@
+# ==============================================================================
+# claude8code - MCP Server Extension
+# ==============================================================================
+# Adds MCP (Model Context Protocol) servers for extended tool capabilities
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.mcp-example.yml up -d
+#
+# Why HTTP/SSE MCP servers?
+#   - stdio MCP servers require Node.js inside the container
+#   - HTTP/SSE allows running MCP servers as separate containers
+#   - Better separation of concerns (microservices pattern)
+#   - See README.md "Limitation: HTTP/SSE MCP servers only" section
+#
+# Configure MCP in workspace/.mcp.json:
+#   {
+#     "mcpServers": {
+#       "fetch": { "type": "sse", "url": "http://mcp-fetch:3001/sse" }
+#     }
+#   }
+# ==============================================================================
+
+services:
+  # Extend claude8code with MCP network and dependency
+  claude8code:
+    depends_on:
+      mcp-fetch:
+        condition: service_healthy
+    networks:
+      - mcp-network
+
+  # MCP Fetch server - provides web fetching capabilities
+  # Uses mcp-proxy to expose stdio-based mcp-server-fetch over SSE
+  #
+  # Available tools after connection:
+  #   - fetch: Fetch content from a URL
+  #
+  # Docs: https://modelcontextprotocol.io/docs/tools/fetch
+  mcp-fetch:
+    image: node:20-slim
+    container_name: mcp-fetch
+    working_dir: /app
+    command: >
+      sh -c "npm install -g @anthropics/mcp-proxy @anthropics/mcp-server-fetch &&
+             mcp-proxy --sse-port 3001 -- mcp-server-fetch"
+    ports:
+      - "3001:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3001/sse || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
+
+# ==============================================================================
+# Additional MCP Servers (uncomment to enable)
+# ==============================================================================
+# Add these to workspace/.mcp.json when enabling:
+#
+#   mcp-filesystem:
+#     image: node:20-slim
+#     container_name: mcp-filesystem
+#     working_dir: /app
+#     command: >
+#       sh -c "npm install -g @anthropics/mcp-proxy @anthropics/mcp-server-filesystem &&
+#              mcp-proxy --sse-port 3002 -- mcp-server-filesystem /data"
+#     volumes:
+#       - ./data:/data
+#     ports:
+#       - "3002:3002"
+#     networks:
+#       - mcp-network
+#
+#   mcp-github:
+#     image: node:20-slim
+#     container_name: mcp-github
+#     working_dir: /app
+#     command: >
+#       sh -c "npm install -g @anthropics/mcp-proxy @anthropics/mcp-server-github &&
+#              mcp-proxy --sse-port 3003 -- mcp-server-github"
+#     environment:
+#       - GITHUB_TOKEN=${GITHUB_TOKEN}
+#     ports:
+#       - "3003:3003"
+#     networks:
+#       - mcp-network

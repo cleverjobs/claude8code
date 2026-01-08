@@ -159,49 +159,21 @@ def expand_command(prompt: str, workspace: WorkspaceConfig) -> tuple[str, str | 
     return expanded, command_name
 
 
-def build_system_context(workspace: WorkspaceConfig) -> str:
-    """Build system prompt context from workspace configuration.
+def get_project_instructions(workspace: WorkspaceConfig) -> str | None:
+    """Get CLAUDE.md project instructions only.
+
+    The SDK handles skills, agents, and commands natively via setting_sources.
+    This function only returns the CLAUDE.md content for project-specific instructions.
 
     Args:
         workspace: Loaded workspace configuration.
 
     Returns:
-        Formatted context string to inject into system prompt.
+        CLAUDE.md content wrapped in XML tags, or None if not present.
     """
-    sections: list[str] = []
-
-    # CLAUDE.md as base instructions
     if workspace.claude_md:
-        sections.append(f"<project-instructions>\n{workspace.claude_md}\n</project-instructions>")
-
-    # Available commands (just list them, don't include full content)
-    if workspace.commands:
-        cmd_list = "\n".join(f"- /{name}" for name in sorted(workspace.commands))
-        sections.append(
-            "<available-commands>\n"
-            f"The following slash commands are available:\n{cmd_list}\n"
-            "</available-commands>"
-        )
-
-    # Available skills (include full content for context)
-    if workspace.skills:
-        skills_content = []
-        for name, content in sorted(workspace.skills.items()):
-            skills_content.append(f"### {name}\n{content}")
-        sections.append(
-            "<available-skills>\n" + "\n\n".join(skills_content) + "\n</available-skills>"
-        )
-
-    # Available agents (include full content for context)
-    if workspace.agents:
-        agents_content = []
-        for name, content in sorted(workspace.agents.items()):
-            agents_content.append(f"### {name}\n{content}")
-        sections.append(
-            "<available-agents>\n" + "\n\n".join(agents_content) + "\n</available-agents>"
-        )
-
-    return "\n\n".join(sections) if sections else ""
+        return f"<project-instructions>\n{workspace.claude_md}\n</project-instructions>"
+    return None
 
 
 # Module-level cache for workspace config

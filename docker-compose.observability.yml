@@ -1,7 +1,7 @@
 # ==============================================================================
-# claude8code - Observability Stack
+# claude8code - Observability Extension
 # ==============================================================================
-# Prometheus + Grafana monitoring for claude8code
+# Adds Prometheus + Grafana monitoring to claude8code
 #
 # Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
@@ -13,30 +13,12 @@
 # ==============================================================================
 
 services:
-  # Include the main claude8code service
+  # Extend claude8code with network for observability stack
   claude8code:
-    build: .
-    container_name: claude8code
-    ports:
-      - "8787:8787"
-    volumes:
-      - ~/.claude:/home/claude8code/.claude:ro
-      - ./workspace:/home/claude8code/workspace
-    environment:
-      - CLAUDE8CODE_HOST=0.0.0.0
-      - CLAUDE8CODE_PORT=8787
-      - CLAUDE8CODE_CWD=/home/claude8code/workspace
-      - CLAUDE8CODE_MAX_TURNS=10
-      - CLAUDE8CODE_PERMISSION_MODE=acceptEdits
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     networks:
       - claude8code-network
+    volumes:
+      - ~/.claude:/home/claude8code/.claude:ro
 
   prometheus:
     image: prom/prometheus:v2.48.0

@@ -596,13 +596,51 @@ Edit `workspace/.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]
+    "fetch": {
+      "type": "sse",
+      "url": "http://mcp-fetch:3001/sse"
     }
   }
 }
 ```
+
+**Limitation: HTTP/SSE MCP servers only**
+
+claude8code only supports HTTP/SSE-based MCP servers, not stdio-based servers.
+
+| Transport | Supported | Example |
+|-----------|-----------|---------|
+| `sse` | ✅ | `{"type": "sse", "url": "http://host:3001/sse"}` |
+| `http` | ✅ | `{"type": "http", "url": "http://host:3001"}` |
+| `stdio` | ❌ | `{"command": "npx", "args": [...]}` |
+
+**Why this limitation?**
+
+1. **Docker compatibility**: stdio MCP servers run as subprocesses and require the MCP binary (usually `npx`) inside the container. This means installing Node.js in the Python container.
+
+2. **Separation of concerns**: Running MCP servers as separate containers follows microservices best practices - each service in its own container with its own dependencies.
+
+3. **Scalability**: HTTP/SSE servers can be load-balanced, health-checked, and scaled independently.
+
+4. **Reliability**: Network-based communication is more robust than subprocess stdio, especially in containerized environments.
+
+**Running MCP servers in Docker:**
+
+Use `mcp-proxy` to expose any stdio-based MCP server over SSE:
+
+```yaml
+# docker-compose.mcp-example.yml
+services:
+  mcp-fetch:
+    image: node:20-slim
+    command: >
+      sh -c "npm install -g @anthropics/mcp-proxy @anthropics/mcp-server-fetch &&
+             mcp-proxy --sse-port 3001 -- mcp-server-fetch"
+    ports:
+      - "3001:3001"
+```
+
+See `docker-compose.mcp-example.yml` for a complete example.
 
 ### Configuring Workspace Path
 

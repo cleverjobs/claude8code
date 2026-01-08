@@ -7,8 +7,8 @@ from pathlib import Path
 
 from src.sdk.workspace import (
     WorkspaceConfig,
-    build_system_context,
     expand_command,
+    get_project_instructions,
     load_workspace,
 )
 
@@ -141,57 +141,42 @@ class TestExpandCommand:
         assert cmd == "commit"
 
 
-class TestBuildSystemContext:
-    """Tests for build_system_context function."""
+class TestGetProjectInstructions:
+    """Tests for get_project_instructions function."""
 
-    def test_empty_workspace(self) -> None:
-        """Test empty workspace produces no context."""
+    def test_returns_none_for_empty_workspace(self) -> None:
+        """Test returns None when no CLAUDE.md present."""
         workspace = WorkspaceConfig()
-        context = build_system_context(workspace)
-        assert context == ""
+        result = get_project_instructions(workspace)
+        assert result is None
 
-    def test_claude_md_only(self) -> None:
-        """Test context with only CLAUDE.md."""
-        workspace = WorkspaceConfig(claude_md="Project rules here")
-        context = build_system_context(workspace)
-        assert "<project-instructions>" in context
-        assert "Project rules here" in context
-        assert "</project-instructions>" in context
+    def test_returns_none_with_only_commands(self) -> None:
+        """Test returns None when only commands are present."""
+        workspace = WorkspaceConfig(commands={"commit": "..."})
+        result = get_project_instructions(workspace)
+        assert result is None
 
-    def test_commands_list(self) -> None:
-        """Test commands are listed."""
-        workspace = WorkspaceConfig(commands={"commit": "...", "pr": "..."})
-        context = build_system_context(workspace)
-        assert "<available-commands>" in context
-        assert "- /commit" in context
-        assert "- /pr" in context
+    def test_returns_formatted_claude_md(self) -> None:
+        """Test returns CLAUDE.md content wrapped in XML tags."""
+        workspace = WorkspaceConfig(claude_md="Project specific rules")
+        result = get_project_instructions(workspace)
+        assert result is not None
+        assert "<project-instructions>" in result
+        assert "Project specific rules" in result
+        assert "</project-instructions>" in result
 
-    def test_skills_content(self) -> None:
-        """Test skills include full content."""
-        workspace = WorkspaceConfig(skills={"database": "DB operations guide"})
-        context = build_system_context(workspace)
-        assert "<available-skills>" in context
-        assert "### database" in context
-        assert "DB operations guide" in context
-
-    def test_agents_content(self) -> None:
-        """Test agents include full content."""
-        workspace = WorkspaceConfig(agents={"code-reviewer": "Review code quality"})
-        context = build_system_context(workspace)
-        assert "<available-agents>" in context
-        assert "### code-reviewer" in context
-        assert "Review code quality" in context
-
-    def test_full_workspace(self) -> None:
-        """Test context with all components."""
+    def test_ignores_skills_agents_commands(self) -> None:
+        """Test only returns CLAUDE.md, ignores other extensions."""
         workspace = WorkspaceConfig(
-            claude_md="Project rules",
+            claude_md="My rules",
             commands={"commit": "..."},
-            skills={"db": "DB guide"},
-            agents={"reviewer": "Review guide"},
+            skills={"db": "..."},
+            agents={"reviewer": "..."},
         )
-        context = build_system_context(workspace)
-        assert "<project-instructions>" in context
-        assert "<available-commands>" in context
-        assert "<available-skills>" in context
-        assert "<available-agents>" in context
+        result = get_project_instructions(workspace)
+        assert result is not None
+        assert "My rules" in result
+        # Should not include other extensions
+        assert "commit" not in result
+        assert "db" not in result
+        assert "reviewer" not in result

@@ -47,8 +47,8 @@ from .tokenizer import (
 )
 from .workspace import (
     WorkspaceConfig,
-    build_system_context,
     expand_command,
+    get_project_instructions,
     get_workspace,
     load_workspace,
     reload_workspace,
@@ -94,5 +94,5 @@ __all__ = [
     "get_workspace",
     "reload_workspace",
     "expand_command",
-    "build_system_context",
+    "get_project_instructions",
 ]
